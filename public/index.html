@@ -235,7 +235,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
 @media(max-width:480px){.sg{grid-template-columns:1fr 1fr}.drow{grid-template-columns:1fr}.abtns{flex-direction:column}.abtns .btn{width:100%;justify-content:center}.ph{flex-direction:column;align-items:flex-start}.mft{flex-direction:column}.mft .btn{width:100%;justify-content:center}.wlf-grid{grid-template-columns:1fr}.input-with-btn{flex-direction:column}.input-with-btn .btn{width:100%;justify-content:center}}
 
 /* ── STOCK SYSTEM ── */
-/* ── Correction Made ── */
 .stock-card{background:var(--bgc);border:1px solid var(--bdr);border-radius:11px;padding:0;overflow:hidden;margin-bottom:12px}
 .stock-card-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;flex-wrap:wrap;gap:10px;border-bottom:1px solid var(--bdr)}
 .stock-card-body{padding:16px 18px}
@@ -1206,7 +1205,7 @@ function openSessionModal(j,sess){document.getElementById('sess-ttl').textConten
 function updateQtySum(){var lt=parseInt(document.getElementById('wl-lt3').value)||0,gt=parseInt(document.getElementById('wl-gt3').value)||0,tr=parseInt(document.getElementById('wl-track').value)||0,ch=parseInt(document.getElementById('wl-chip').value)||0;document.getElementById('wl-qty').value=lt+gt+tr+ch;}
 function syncSession(){updateQtySum();clearTimeout(syncDebounce);syncDebounce=setTimeout(async function(){if(!sessJid)return;var lt=parseInt(document.getElementById('wl-lt3').value)||0,gt=parseInt(document.getElementById('wl-gt3').value)||0,tr=parseInt(document.getElementById('wl-track').value)||0;await sb.from('rc_work_sessions').update({lt3:lt,gt3:gt,track:tr,chip:parseInt(document.getElementById('wl-chip').value)||0,ber:parseInt(document.getElementById('wl-ber').value)||0,qty:lt+gt+tr+ch,notes:document.getElementById('wl-notes').value}).eq('job_id',sessJid).eq('user_id',CU.id);},800);}
 async function refreshSessOthers(){if(!sessJid)return;var sessions=await loadSessions(),others=sessions.filter(function(s){return s.job_id===sessJid&&s.user_id!==CU.id;});var banner=document.getElementById('sess-live-banner'),othEl=document.getElementById('sess-others');if(!banner||!othEl)return;if(others.length){banner.innerHTML='<div style="background:rgba(0,255,136,.06);border:1px solid rgba(0,255,136,.2);border-radius:8px;padding:9px 12px;font-size:12px;color:var(--cg);margin-bottom:8px"><span class="ldot2"></span><strong>'+others.length+' other tech'+(others.length>1?'s':'')+' on this job:</strong> '+others.map(function(s){return userName(s.user_id);}).join(', ')+'</div>';othEl.innerHTML='<div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--tm);margin-bottom:10px">Other Techs — Live Progress</div>'+others.map(function(s){var e=fmtDur(Math.floor((Date.now()-new Date(s.start_time).getTime())/1000));return'<div class="session-card"><div class="session-header"><div style="display:flex;align-items:center;gap:9px"><div class="av avlg">'+userInit(s.user_id)+'</div><div><div style="font-size:14px;font-weight:600">'+userName(s.user_id)+'</div></div></div><span class="ldot2"></span><span style="font-size:12px;color:var(--cg)">'+e+'</span></div><div class="sess-grid"><div class="sfield"><div class="sfval">'+s.lt3+'</div><div class="sflbl">&lt;3 Px</div></div><div class="sfield"><div class="sfval" style="color:var(--cr)">'+s.gt3+'</div><div class="sflbl">&gt;3 Px</div></div><div class="sfield"><div class="sfval" style="color:var(--c2)">'+s.track+'</div><div class="sflbl">Track</div></div><div class="sfield"><div class="sfval" style="color:var(--cp)">'+s.chip+'</div><div class="sflbl">Chip</div></div><div class="sfield"><div class="sfval" style="color:var(--cr)">'+s.ber+'</div><div class="sflbl">BER</div></div><div class="sfield"><div class="sfval" style="color:var(--cg)">'+s.qty+'</div><div class="sflbl">Qty</div></div></div></div>';}).join('');}else{banner.innerHTML='';othEl.innerHTML='';}}
-async function submitSession(){if(!sessJid)return;var j=allJobs.find(function(x){return x.id===sessJid;});if(!j)return;var now=new Date().toISOString(),lt=parseInt(document.getElementById('wl-lt3').value)||0,gt=parseInt(document.getElementById('wl-gt3').value)||0,tr=parseInt(document.getElementById('wl-track').value)||0;var{error:e1}=await sb.from('rc_work_logs').insert({job_id:sessJid,user_id:CU.id,start_time:sessStart.toISOString(),end_time:now,batch:j.batch,pitch:j.pitch,lt3:lt,gt3:gt,track:tr,chip:parseInt(document.getElementById('wl-chip').value)||0,ber:parseInt(document.getElementById('wl-ber').value)||0,qty:lt+gt+tr,notes:document.getElementById('wl-notes').value});if(e1){toast('Error saving log: '+e1.message,'error');return;}await sb.from('rc_work_sessions').delete().eq('job_id',sessJid).eq('user_id',CU.id);if(sessInterval)clearInterval(sessInterval);sessJid=null;sessStart=null;await loadLogs();cm('m-session');toast('Work session submitted!','success');refreshAllTables();renderWLPage();updateActiveNB();}
+async function submitSession(){if(!sessJid)return;var j=allJobs.find(function(x){return x.id===sessJid;});if(!j)return;var now=new Date().toISOString(),lt=parseInt(document.getElementById('wl-lt3').value)||0,gt=parseInt(document.getElementById('wl-gt3').value)||0,tr=parseInt(document.getElementById('wl-track').value)||0,ch=parseInt(document.getElementById('wl-chip').value)||0;var{error:e1}=await sb.from('rc_work_logs').insert({job_id:sessJid,user_id:CU.id,start_time:sessStart.toISOString(),end_time:now,batch:j.batch,pitch:j.pitch,lt3:lt,gt3:gt,track:tr,chip:ch,ber:parseInt(document.getElementById('wl-ber').value)||0,qty:lt+gt+tr+ch,notes:document.getElementById('wl-notes').value});if(e1){toast('Error saving log: '+e1.message,'error');return;}await sb.from('rc_work_sessions').delete().eq('job_id',sessJid).eq('user_id',CU.id);if(sessInterval)clearInterval(sessInterval);sessJid=null;sessStart=null;await loadLogs();cm('m-session');toast('Work session submitted!','success');refreshAllTables();renderWLPage();updateActiveNB();}
 async function abandonSession(){if(!sessJid)return;await sb.from('rc_work_sessions').delete().eq('job_id',sessJid).eq('user_id',CU.id);if(sessInterval)clearInterval(sessInterval);sessJid=null;sessStart=null;cm('m-session');toast('Session abandoned','info');refreshAllTables();updateActiveNB();}
 async function updateActiveNB(){var sessions=await loadSessions();var count=sessions.length;var nb=document.getElementById('nb-active');if(nb){nb.textContent=count;nb.style.display=count?'':'none';}}
 async function refreshActivePage(){if(!document.getElementById('page-active').classList.contains('active'))return;var sessions=await loadSessions();var ind=document.getElementById('active-ind');if(ind)ind.textContent=sessions.length?sessions.length+' active session'+(sessions.length>1?'s':'')+' live':'No active sessions';if(!sessions.length){document.getElementById('active-cont').innerHTML='<div class="empty"><div class="eico">▶</div><p class="etxt">No active work sessions right now</p></div>';return;}var jobIds=[...new Set(sessions.map(function(s){return s.job_id;}))];document.getElementById('active-cont').innerHTML=jobIds.map(function(jid){var j=allJobs.find(function(x){return x.id===jid;});var jSess=sessions.filter(function(s){return s.job_id===jid;});if(!j)return'';return'<div style="background:var(--bgc);border:1px solid var(--bdr);border-radius:12px;padding:18px;margin-bottom:16px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px"><div><span style="font-family:Rajdhani,sans-serif;font-size:18px;font-weight:700;color:var(--c1)">'+j.job_number+'</span> <span style="font-size:15px;font-weight:500">'+j.job_name+'</span></div><span class="bdg '+sc(j.status)+'"><span class="bdot"></span>'+j.status+'</span></div>'+jSess.map(function(s){var elapsed=fmtDur(Math.floor((Date.now()-new Date(s.start_time).getTime())/1000));return'<div class="session-card"><div class="session-header"><div style="display:flex;align-items:center;gap:9px"><div class="av avlg">'+userInit(s.user_id)+'</div><div><div style="font-size:14px;font-weight:600">'+userName(s.user_id)+'</div><div style="font-size:12px;color:var(--tm)">'+s.start_time.slice(0,16).replace('T',' ')+'</div></div></div><span><span class="ldot2"></span><span style="font-size:12px;color:var(--cg)">'+elapsed+'</span></span></div><div class="sess-grid"><div class="sfield"><div class="sfval">'+s.lt3+'</div><div class="sflbl">&lt;3 Px</div></div><div class="sfield"><div class="sfval" style="color:var(--cr)">'+s.gt3+'</div><div class="sflbl">&gt;3 Px</div></div><div class="sfield"><div class="sfval" style="color:var(--c2)">'+s.track+'</div><div class="sflbl">Track</div></div><div class="sfield"><div class="sfval" style="color:var(--cp)">'+s.chip+'</div><div class="sflbl">Chip</div></div><div class="sfield"><div class="sfval" style="color:var(--cr)">'+s.ber+'</div><div class="sflbl">BER</div></div><div class="sfield"><div class="sfval" style="color:var(--cg)">'+s.qty+'</div><div class="sflbl">Qty</div></div></div>'+(s.notes?'<div style="font-size:12px;color:var(--tm)">'+s.notes+'</div>':'')+' </div>';}).join('')+'</div>';}).join('');}
@@ -1233,7 +1232,307 @@ async function applyStatus(){var j=allJobs.find(function(x){return x.id===stJid;
 function prepReports(){var today=new Date(),fd=document.getElementById('rep-from'),td=document.getElementById('rep-to');if(fd&&!fd.value)fd.value=new Date(today.getFullYear(),today.getMonth(),1).toISOString().slice(0,10);if(td&&!td.value)td.value=today.toISOString().slice(0,10);}
 function getFilteredLogs(){var from=document.getElementById('rep-from').value,to=document.getElementById('rep-to').value,uid=document.getElementById('rep-user').value,logs=allLogs;if(from)logs=logs.filter(function(wl){return wl.start_time>=from;});if(to)logs=logs.filter(function(wl){return wl.start_time<=(to+'T23:59');});if(uid)logs=logs.filter(function(wl){return wl.user_id===uid;});return logs;}
 function generateReport(){var logs=getFilteredLogs(),from=document.getElementById('rep-from').value||'—',to=document.getElementById('rep-to').value||'—';if(!logs.length){document.getElementById('rep-preview').innerHTML='<div class="empty"><div class="eico">📊</div><p class="etxt">No logs found for this period</p></div>';return;}var totLt3=0,totGt3=0,totTrack=0,totChip=0,totBer=0,totQty=0;logs.forEach(function(wl){totLt3+=wl.lt3;totGt3+=wl.gt3;totTrack+=wl.track;totChip+=wl.chip;totBer+=wl.ber;totQty+=wl.qty;});var byUser={};logs.forEach(function(wl){if(!byUser[wl.user_id])byUser[wl.user_id]=[];byUser[wl.user_id].push(wl);});var html='<div style="background:var(--bgc);border:1px solid var(--bdr);border-radius:12px;padding:20px"><div style="margin-bottom:16px"><div style="font-family:Rajdhani,sans-serif;font-size:20px;font-weight:700;color:var(--c1)">Work Log Report</div><div style="font-size:12px;color:var(--tm)">'+from+' to '+to+' · '+logs.length+' sessions</div></div><div class="sg" style="margin-bottom:16px"><div class="sc blue"><div class="slb">&lt;3 Pixels</div><div class="sv">'+totLt3+'</div></div><div class="sc red"><div class="slb">&gt;3 Pixels</div><div class="sv">'+totGt3+'</div></div><div class="sc orange"><div class="slb">Track Dmg</div><div class="sv">'+totTrack+'</div></div><div class="sc green"><div class="slb">Total Modules</div><div class="sv">'+totQty+'</div></div></div>';Object.keys(byUser).forEach(function(uid){var u=allUsers.find(function(x){return x.id===uid;}),ulogs=byUser[uid],uSecs=0,uLt3=0,uGt3=0,uTrack=0,uChip=0,uBer=0,uQty=0;ulogs.forEach(function(wl){uLt3+=wl.lt3;uGt3+=wl.gt3;uTrack+=wl.track;uChip+=wl.chip;uBer+=wl.ber;uQty+=wl.qty;if(wl.start_time&&wl.end_time)uSecs+=Math.floor((new Date(wl.end_time)-new Date(wl.start_time))/1000);});html+='<div class="rep-section"><div class="rep-title">'+(u?u.name:'Unknown')+' <span style="font-size:12px;color:var(--tm);font-family:Inter,sans-serif;font-weight:400">'+(u?u.role:'')+' · '+ulogs.length+' session(s) · '+fmtDur(uSecs)+'</span></div><table class="rep-table"><thead><tr><th>Job</th><th>Start</th><th>End</th><th>Dur</th><th>&lt;3</th><th>&gt;3</th><th>Track</th><th>Chip</th><th>BER</th><th>Qty</th><th>Notes</th></tr></thead><tbody>'+ulogs.map(function(wl){var j2=allJobs.find(function(x){return x.id===wl.job_id;}),dur='—';if(wl.start_time&&wl.end_time)dur=fmtDur(Math.floor((new Date(wl.end_time)-new Date(wl.start_time))/1000));return'<tr><td>'+(j2?j2.job_number:'?')+'<br><span style="color:var(--tm);font-size:11px">'+(j2?j2.client:'')+'</span></td><td>'+(wl.start_time?wl.start_time.slice(0,16).replace('T',' '):'-')+'</td><td>'+(wl.end_time?wl.end_time.slice(0,16).replace('T',' '):'-')+'</td><td style="color:var(--c1)">'+dur+'</td><td>'+wl.lt3+'</td><td style="color:var(--cr)">'+wl.gt3+'</td><td>'+wl.track+'</td><td>'+wl.chip+'</td><td>'+wl.ber+'</td><td style="font-weight:700;color:var(--cg)">'+wl.qty+'</td><td style="font-size:11px;color:var(--tm);max-width:120px">'+(wl.notes||'—')+'</td></tr>';}).join('')+'<tr style="background:rgba(0,212,255,.05)"><td colspan="4" style="font-weight:600">TOTALS</td><td>'+uLt3+'</td><td style="color:var(--cr)">'+uGt3+'</td><td>'+uTrack+'</td><td>'+uChip+'</td><td>'+uBer+'</td><td style="font-weight:700;color:var(--cg)">'+uQty+'</td><td></td></tr></tbody></table></div>';});html+='</div>';document.getElementById('rep-preview').innerHTML=html;}
-function downloadPDF(){var logs=getFilteredLogs(),from=document.getElementById('rep-from').value||'all',to=document.getElementById('rep-to').value||'all';if(!logs.length){toast('No logs for this period','error');return;}if(typeof window.jspdf==='undefined'){toast('PDF library loading, try again','info');return;}var doc=new window.jspdf.jsPDF({orientation:'landscape',unit:'mm',format:'a4'}),W=297,M=14;doc.setFillColor(17,24,39);doc.rect(0,0,W,22,'F');doc.setTextColor(0,212,255);doc.setFontSize(16);doc.setFont('helvetica','bold');doc.text('EYECOM LED SOLUTIONS — REPAIR CENTRE WORK LOG REPORT',M,14);doc.setTextColor(120,133,153);doc.setFontSize(9);doc.setFont('helvetica','normal');doc.text('Period: '+from+' to '+to,M,20);doc.text('Generated: '+new Date().toLocaleString(),W-M,20,{align:'right'});var y=30,totLt3=0,totGt3=0,totTrack=0,totChip=0,totBer=0,totQty=0;logs.forEach(function(wl){totLt3+=wl.lt3;totGt3+=wl.gt3;totTrack+=wl.track;totChip+=wl.chip;totBer+=wl.ber;totQty+=wl.qty;});doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,212,255);doc.text('Period Summary',M,y);y+=5;doc.autoTable({startY:y,head:[['Sessions','<3 Pixels','>3 Pixels','Track Damage','Chip Faults','B.E.R','Total Modules']],body:[[logs.length,totLt3,totGt3,totTrack,totChip,totBer,totQty]],theme:'grid',headStyles:{fillColor:[17,24,39],textColor:[0,212,255],fontSize:8},bodyStyles:{textColor:[232,234,240],fontSize:9,fillColor:[26,34,52]},margin:{left:M,right:M}});y=doc.lastAutoTable.finalY+10;var byUser={};logs.forEach(function(wl){if(!byUser[wl.user_id])byUser[wl.user_id]=[];byUser[wl.user_id].push(wl);});Object.keys(byUser).forEach(function(uid){var u=allUsers.find(function(x){return x.id===uid;}),ulogs=byUser[uid],uSecs=0;ulogs.forEach(function(wl){if(wl.start_time&&wl.end_time)uSecs+=Math.floor((new Date(wl.end_time)-new Date(wl.start_time))/1000);});if(y>170){doc.addPage();y=20;}doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,212,255);doc.text((u?u.name:'Unknown')+' — '+(u?u.role:'')+' — Total: '+fmtDur(uSecs),M,y);y+=5;var uLt3=0,uGt3=0,uTrack=0,uChip=0,uBer=0,uQty=0;ulogs.forEach(function(wl){uLt3+=wl.lt3;uGt3+=wl.gt3;uTrack+=wl.track;uChip+=wl.chip;uBer+=wl.ber;uQty+=wl.qty;});var rows=ulogs.map(function(wl){var j2=allJobs.find(function(x){return x.id===wl.job_id;}),dur='—';if(wl.start_time&&wl.end_time)dur=fmtDur(Math.floor((new Date(wl.end_time)-new Date(wl.start_time))/1000));return[(j2?j2.job_number:'?'),(j2?j2.client:''),wl.start_time?wl.start_time.slice(0,16).replace('T',' '):'-',wl.end_time?wl.end_time.slice(0,16).replace('T',' '):'-',dur,wl.lt3,wl.gt3,wl.track,wl.chip,wl.ber,wl.qty,wl.notes||''];});rows.push(['TOTALS','','','','',uLt3,uGt3,uTrack,uChip,uBer,uQty,'']);doc.autoTable({startY:y,head:[['Job','Client','Start','End','Duration','<3 Px','>3 Px','Track','Chip','BER','Qty','Notes']],body:rows,theme:'grid',headStyles:{fillColor:[17,24,39],textColor:[120,133,153],fontSize:7},bodyStyles:{textColor:[232,234,240],fontSize:7,fillColor:[26,34,52]},margin:{left:M,right:M}});y=doc.lastAutoTable.finalY+12;});doc.save('eyecom-report-'+from+'-'+to+'.pdf');toast('PDF downloaded!','success');}
+function downloadPDF(){
+  var logs=getFilteredLogs();
+  var from=document.getElementById('rep-from').value||'all';
+  var to=document.getElementById('rep-to').value||'all';
+  if(!logs.length){toast('No logs for this period','error');return;}
+  if(typeof window.jspdf==='undefined'){toast('PDF library loading, try again','info');return;}
+
+  // ── Colour palette ──────────────────────────────────────────────────────
+  // Dark backgrounds
+  var BG_PAGE   = [10,  13,  20];   // #0a0d14 — page background
+  var BG_HEADER = [17,  24,  39];   // #111827 — header band
+  var BG_BAND   = [26,  34,  52];   // #1a2234 — alternate row / section band
+  var BG_CARD   = [17,  24,  39];   // #111827 — stat cards
+  var BG_TOTALS = [10,  13,  20];   // darkest row for totals
+  // Accent colours
+  var CYAN      = [0,   212, 255];  // #00d4ff
+  var GREEN     = [0,   255, 136];  // #00ff88
+  var AMBER     = [255, 204, 0  ];  // #ffcc00
+  var RED       = [255, 51,  85 ];  // #ff3355
+  var ORANGE    = [255, 107, 0  ];  // #ff6b00
+  var PURPLE    = [168, 85,  247];  // #a855f7
+  // Text colours
+  var TXT_PRI   = [232, 234, 240];  // #e8eaf0
+  var TXT_MUT   = [120, 133, 153];  // #7a8599
+  var TXT_DIM   = [60,  70,  90 ];  // dim border line colour
+  // Border colour (subtle)
+  var BORDER    = [30,  42,  65 ];  // #1e2a41
+
+  var doc = new window.jspdf.jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+  var W=297, H=210, M=12;
+
+  // ── Helper to start a new page with full dark background ──────────────
+  function newPage(){
+    doc.addPage();
+    doc.setFillColor.apply(doc, BG_PAGE);
+    doc.rect(0,0,W,H,'F');
+  }
+
+  // ── Fill first page background ────────────────────────────────────────
+  doc.setFillColor.apply(doc, BG_PAGE);
+  doc.rect(0,0,W,H,'F');
+
+  // ── HEADER BAND ───────────────────────────────────────────────────────
+  doc.setFillColor.apply(doc, BG_HEADER);
+  doc.rect(0,0,W,28,'F');
+
+  // Cyan accent left bar
+  doc.setFillColor.apply(doc, CYAN);
+  doc.rect(0,0,3,28,'F');
+
+  // Company logo dot
+  doc.setFillColor.apply(doc, CYAN);
+  doc.circle(M+5, 14, 4, 'F');
+  doc.setFillColor.apply(doc, BG_PAGE);
+  doc.circle(M+5, 14, 2, 'F');
+
+  // Title
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(15);
+  doc.setTextColor.apply(doc, TXT_PRI);
+  doc.text('EYECOM LED SOLUTIONS', M+13, 11);
+  doc.setFontSize(8.5);
+  doc.setFont('helvetica','normal');
+  doc.setTextColor.apply(doc, CYAN);
+  doc.text('REPAIR CENTRE  \u2014  WORK LOG REPORT', M+13, 17);
+
+  // Period + generated
+  doc.setFontSize(7.5);
+  doc.setTextColor.apply(doc, TXT_MUT);
+  doc.text('Period: '+from+' \u2192 '+to, M+13, 24);
+  doc.text('Generated: '+new Date().toLocaleString(), W-M, 24, {align:'right'});
+
+  var y = 36;
+
+  // ── PERIOD TOTALS — stat cards row ────────────────────────────────────
+  var totLt3=0,totGt3=0,totTrack=0,totChip=0,totBer=0,totQty=0,totSess=logs.length;
+  logs.forEach(function(wl){totLt3+=wl.lt3;totGt3+=wl.gt3;totTrack+=wl.track;totChip+=wl.chip;totBer+=wl.ber;totQty+=wl.qty;});
+
+  var stats=[
+    {label:'Sessions',   val:totSess, col:CYAN},
+    {label:'<3 Pixels',  val:totLt3,  col:AMBER},
+    {label:'>3 Pixels',  val:totGt3,  col:RED},
+    {label:'Track Dmg',  val:totTrack,col:ORANGE},
+    {label:'Chip Faults',val:totChip, col:PURPLE},
+    {label:'B.E.R',      val:totBer,  col:RED},
+    {label:'Total Modules',val:totQty,col:GREEN},
+  ];
+
+  var cardW=(W-M*2-6)/stats.length, cardH=18;
+  stats.forEach(function(s,i){
+    var cx=M+i*(cardW+1);
+    // Card bg
+    doc.setFillColor.apply(doc, BG_CARD);
+    doc.roundedRect(cx, y, cardW, cardH, 1.5, 1.5, 'F');
+    // Accent top stripe
+    doc.setFillColor.apply(doc, s.col);
+    doc.roundedRect(cx, y, cardW, 2, 1, 0, 'F');
+    doc.rect(cx, y+1, cardW, 1, 'F'); // fill the bottom half of rounding
+    // Value
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(12);
+    doc.setTextColor.apply(doc, s.col);
+    doc.text(String(s.val), cx+cardW/2, y+10, {align:'center'});
+    // Label
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(5.5);
+    doc.setTextColor.apply(doc, TXT_MUT);
+    doc.text(s.label.toUpperCase(), cx+cardW/2, y+15.5, {align:'center'});
+  });
+
+  y += cardH + 10;
+
+  // ── SECTION RULE helper ───────────────────────────────────────────────
+  function sectionHeader(title, subtitle){
+    if(y > 175){ newPage(); y=20; }
+    // Full-width band
+    doc.setFillColor.apply(doc, BG_BAND);
+    doc.rect(M, y, W-M*2, 9, 'F');
+    // Cyan left accent
+    doc.setFillColor.apply(doc, CYAN);
+    doc.rect(M, y, 2.5, 9, 'F');
+    // Title
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(8);
+    doc.setTextColor.apply(doc, TXT_PRI);
+    doc.text(title, M+6, y+5.8);
+    // Subtitle (right)
+    if(subtitle){
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(7);
+      doc.setTextColor.apply(doc, TXT_MUT);
+      doc.text(subtitle, W-M, y+5.8, {align:'right'});
+    }
+    y += 12;
+  }
+
+  // ── TABLE STYLES (shared) ─────────────────────────────────────────────
+  var tblHeadStyles = {
+    fillColor: BG_BAND,
+    textColor: CYAN,
+    fontSize: 6.5,
+    fontStyle: 'bold',
+    lineColor: BORDER,
+    lineWidth: 0.3,
+    halign: 'center',
+    cellPadding: 2.5,
+  };
+  var tblBodyStyles = {
+    fillColor: BG_PAGE,
+    textColor: TXT_PRI,
+    fontSize: 6.5,
+    lineColor: BORDER,
+    lineWidth: 0.2,
+    cellPadding: 2,
+  };
+  var tblAltStyles = {
+    fillColor: BG_BAND,
+  };
+  var tblFootStyles = {
+    fillColor: BG_HEADER,
+    textColor: GREEN,
+    fontStyle: 'bold',
+    fontSize: 7,
+    lineColor: BORDER,
+    lineWidth: 0.3,
+  };
+
+  // ── SUMMARY TABLE ─────────────────────────────────────────────────────
+  sectionHeader('PERIOD SUMMARY', from+' to '+to+' \u00b7 '+totSess+' session'+(totSess!==1?'s':''));
+  doc.autoTable({
+    startY: y,
+    head: [['Sessions','<3 Pixels','>3 Pixels','Track Damage','Chip Faults','B.E.R','Total Modules Repaired']],
+    body: [[totSess, totLt3, totGt3, totTrack, totChip, totBer, totQty]],
+    theme: 'grid',
+    headStyles: tblHeadStyles,
+    bodyStyles: Object.assign({}, tblBodyStyles, {halign:'center', fontSize:9, fontStyle:'bold'}),
+    columnStyles: {6:{textColor:GREEN}},
+    margin: {left:M, right:M},
+    tableLineColor: BORDER,
+    tableLineWidth: 0.3,
+  });
+  y = doc.lastAutoTable.finalY + 10;
+
+  // ── PER-TECHNICIAN BREAKDOWN ──────────────────────────────────────────
+  var byUser={};
+  logs.forEach(function(wl){if(!byUser[wl.user_id])byUser[wl.user_id]=[];byUser[wl.user_id].push(wl);});
+
+  Object.keys(byUser).forEach(function(uid){
+    var u=allUsers.find(function(x){return x.id===uid;});
+    var ulogs=byUser[uid];
+    var uSecs=0,uLt3=0,uGt3=0,uTrack=0,uChip=0,uBer=0,uQty=0;
+    ulogs.forEach(function(wl){
+      uLt3+=wl.lt3;uGt3+=wl.gt3;uTrack+=wl.track;uChip+=wl.chip;uBer+=wl.ber;uQty+=wl.qty;
+      if(wl.start_time&&wl.end_time)uSecs+=Math.floor((new Date(wl.end_time)-new Date(wl.start_time))/1000);
+    });
+
+    var name=(u?u.name:'Unknown User');
+    var role=(u?u.role:'');
+    var subtitle=role+' \u00b7 '+ulogs.length+' session'+(ulogs.length!==1?'s':'')+' \u00b7 Work time: '+fmtDur(uSecs);
+
+    if(y > 165){newPage();y=20;}
+    sectionHeader(name.toUpperCase(), subtitle);
+
+    // Mini stat pills for this tech
+    var uStats=[
+      {l:'<3 Px',v:uLt3,c:AMBER},{l:'>3 Px',v:uGt3,c:RED},
+      {l:'Track',v:uTrack,c:ORANGE},{l:'Chip',v:uChip,c:PURPLE},
+      {l:'BER',v:uBer,c:RED},{l:'Total Qty',v:uQty,c:GREEN}
+    ];
+    var pillW=(W-M*2-5)/uStats.length, pillH=10;
+    uStats.forEach(function(s,i){
+      var px=M+i*(pillW+1);
+      doc.setFillColor.apply(doc, BG_CARD);
+      doc.roundedRect(px, y, pillW, pillH, 1, 1, 'F');
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(9);
+      doc.setTextColor.apply(doc, s.c);
+      doc.text(String(s.v), px+pillW/2, y+5.5, {align:'center'});
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(5);
+      doc.setTextColor.apply(doc, TXT_MUT);
+      doc.text(s.l.toUpperCase(), px+pillW/2, y+9, {align:'center'});
+    });
+    y += pillH + 5;
+
+    if(y > 168){newPage();y=20;}
+
+    // Session detail table
+    var rows = ulogs.map(function(wl,idx2){
+      var j2=allJobs.find(function(x){return x.id===wl.job_id;});
+      var dur='—';
+      if(wl.start_time&&wl.end_time)dur=fmtDur(Math.floor((new Date(wl.end_time)-new Date(wl.start_time))/1000));
+      return [
+        j2?j2.job_number:'?',
+        j2?j2.client:'',
+        wl.start_time?wl.start_time.slice(0,16).replace('T',' '):'-',
+        wl.end_time?wl.end_time.slice(0,16).replace('T',' '):'-',
+        dur,
+        wl.lt3, wl.gt3, wl.track, wl.chip, wl.ber,
+        wl.qty,
+        (wl.notes||'—').slice(0,40)
+      ];
+    });
+
+    // Totals row
+    rows.push(['TOTALS','','','','', uLt3,uGt3,uTrack,uChip,uBer, uQty,'']);
+
+    doc.autoTable({
+      startY: y,
+      head: [['Job #','Client','Start','End','Duration','<3 Px','>3 Px','Track','Chip','BER','Qty','Notes']],
+      body: rows,
+      theme: 'grid',
+      headStyles: tblHeadStyles,
+      bodyStyles: tblBodyStyles,
+      alternateRowStyles: tblAltStyles,
+      footStyles: tblFootStyles,
+      columnStyles: {
+        0:{fontStyle:'bold', textColor:CYAN, halign:'center'},
+        4:{halign:'center', textColor:AMBER},
+        5:{halign:'center', textColor:AMBER},
+        6:{halign:'center', textColor:RED},
+        7:{halign:'center', textColor:ORANGE},
+        8:{halign:'center', textColor:PURPLE},
+        9:{halign:'center', textColor:RED},
+        10:{halign:'center', textColor:GREEN, fontStyle:'bold'},
+      },
+      // Style the TOTALS row
+      didParseCell: function(data){
+        if(data.row.index===rows.length-1){
+          data.cell.styles.fillColor=BG_HEADER;
+          data.cell.styles.textColor=GREEN;
+          data.cell.styles.fontStyle='bold';
+          data.cell.styles.fontSize=7;
+        }
+      },
+      margin: {left:M, right:M},
+      tableLineColor: BORDER,
+      tableLineWidth: 0.3,
+    });
+    y = doc.lastAutoTable.finalY + 10;
+  });
+
+  // ── FOOTER on every page ──────────────────────────────────────────────
+  var pageCount = doc.getNumberOfPages();
+  for(var p=1;p<=pageCount;p++){
+    doc.setPage(p);
+    // Footer band
+    doc.setFillColor.apply(doc, BG_HEADER);
+    doc.rect(0, H-8, W, 8, 'F');
+    doc.setFillColor.apply(doc, CYAN);
+    doc.rect(0, H-8, W, 0.5, 'F');
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(6);
+    doc.setTextColor.apply(doc, TXT_MUT);
+    doc.text('EYECOM LED SOLUTIONS — REPAIR CENTRE  |  Confidential', M, H-3);
+    doc.text('Page '+p+' of '+pageCount, W-M, H-3, {align:'right'});
+  }
+
+  doc.save('eyecom-worklogs-'+from+'-to-'+to+'.pdf');
+  toast('PDF report downloaded!','success');
+}
 
 // ══════════════════════════════════════════════
 //  USERS
@@ -1666,6 +1965,7 @@ async function openStockDetail(stockId){
   var pct=s.qty_received>0?Math.round((s.qty_dispatched/s.qty_received)*100):0;
   var barColor=s.status==='fully_dispatched'?'var(--cr)':s.status==='partially_dispatched'?'var(--cy)':'var(--cg)';
 
+  var canEdit=CU&&(CU.is_admin||CU.is_senior);
   var canEdit=CU&&(CU.is_admin||CU.is_senior);
   document.getElementById('m-stock-detail-ttl').textContent=s.batch+' — '+s.job_name;
   document.getElementById('m-stock-detail-body').innerHTML=
