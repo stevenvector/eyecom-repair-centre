@@ -1,56 +1,85 @@
-const CACHE = 'eyecom-rc-v1';
-const OFFLINE_URL = '/';
+const CACHE = 'eyecom-rc-v5';
+
 const PRECACHE = [
   '/',
   '/index.html',
-  '/manifest.json',
-  'https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap',
-  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js'
+  '/manifest.json'
 ];
+
+// Schemes the Cache API accepts - anything else must be ignored
+const CACHEABLE_SCHEMES = ['http:', 'https:'];
 
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE).then(cache => cache.addAll(PRECACHE).catch(() => {}))
+    caches.open(CACHE)
+      .then(cache => cache.addAll(PRECACHE))
       .then(() => self.skipWaiting())
+      .catch(() => self.skipWaiting())
   );
 });
 
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then(keys => Promise.all(
+        keys.filter(k => k !== CACHE).map(k => caches.delete(k))
+      ))
+      .then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET') return;
-  const url = new URL(event.request.url);
+  const req = event.request;
 
-  // Supabase API — network only, never cache
+  // Only handle GET requests
+  if (req.method !== 'GET') return;
+
+  let url;
+  try {
+    url = new URL(req.url);
+  } catch (e) {
+    return; // malformed URL — ignore
+  }
+
+  // Only cache http/https — reject chrome-extension://, blob://, data://, etc.
+  if (!CACHEABLE_SCHEMES.includes(url.protocol)) return;
+
+  // Supabase API calls — always go to network, never cache
   if (url.hostname.includes('supabase.co')) return;
 
-  // Navigation requests — serve shell from cache, fallback to network
-  if (event.request.mode === 'navigate') {
+  // Navigation requests — serve app shell from cache, fall back to network
+  if (req.mode === 'navigate') {
     event.respondWith(
-      caches.match('/index.html').then(cached => cached || fetch(event.request))
+      caches.match('/index.html')
+        .then(cached => cached || fetch(req))
+        .catch(() => caches.match('/index.html'))
     );
     return;
   }
 
-  // Cache-first for static assets, fonts, CDN libs
+  // Cache-first strategy for static assets and CDN libraries
   event.respondWith(
-    caches.match(event.request).then(cached => {
+    caches.match(req).then(cached => {
       if (cached) return cached;
-      return fetch(event.request).then(response => {
-        if (response && response.status === 200 && response.type !== 'opaque') {
+
+      return fetch(req).then(response => {
+        // Only cache valid, same-origin or CORS responses (not opaque)
+        if (
+          response &&
+          response.status === 200 &&
+          response.type !== 'opaque' &&
+          CACHEABLE_SCHEMES.includes(url.protocol)
+        ) {
           const clone = response.clone();
-          caches.open(CACHE).then(cache => cache.put(event.request, clone));
+          caches.open(CACHE).then(cache => {
+            cache.put(req, clone).catch(() => {}); // silently ignore any put errors
+          });
         }
         return response;
-      }).catch(() => caches.match('/index.html'));
+      }).catch(() => {
+        // Offline fallback — return cached shell
+        return caches.match('/index.html');
+      });
     })
   );
 });
