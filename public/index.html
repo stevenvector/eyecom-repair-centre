@@ -338,14 +338,12 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
       <div class="ni" onclick="showPage('jobs');closeSB()"><span class="ico">⚙</span>All Jobs</div>
       <div class="ni" onclick="showPage('active');closeSB()"><span class="ico">▶</span>Active Work<span class="nb" id="nb-active" style="display:none">0</span></div>
       <div class="ni" onclick="showPage('worklog');closeSB()"><span class="ico">📋</span>Work Logs</div>
+      <div class="ni" onclick="showPage('stock');closeSB()"><span class="ico">📦</span>Stock<span class="nb" id="nb-stock" style="display:none">0</span></div>
       <div class="sdiv"></div>
       <div class="slbl">Admin / Senior</div>
       <div class="ni ao" onclick="showPage('reports');closeSB()"><span class="ico">📊</span>Reports</div>
       <div class="ni ao" onclick="showPage('users');closeSB()"><span class="ico">👥</span>Users</div>
       <div class="ni ao" onclick="showPage('requests');closeSB()"><span class="ico">📨</span>Requests<span class="nb" id="nbr" style="display:none">0</span></div>
-      <div class="sdiv"></div>
-      <div class="sdiv"></div>
-      <div class="ni" onclick="showPage('stock');closeSB()"><span class="ico">📦</span>Stock<span class="nb" id="nb-stock" style="display:none">!</span></div>
       <div class="ni" onclick="showPage('settings');closeSB()"><span class="ico">⚙</span>Settings</div>
     </div>
     <div class="sbu">
@@ -424,6 +422,37 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
     <div class="page" id="page-requests">
       <div class="ph"><div class="pt">Requests</div><button class="btn bout" onclick="openSendReq()">📨 Send Request</button></div>
       <div id="reqcont"></div>
+    </div>
+
+
+    <!-- STOCK PAGE -->
+    <div class="page" id="page-stock">
+      <div class="ph">
+        <div>
+          <div class="pt">Stock Control</div>
+          <div style="font-size:12px;color:var(--tm);margin-top:2px" id="stock-summary-line">Loading...</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn bout ao" onclick="openAddLocation()">+ Location</button>
+          <button class="btn bcyan ao" onclick="openDispatch()">&#8599; Dispatch</button>
+        </div>
+      </div>
+      <div class="tb2">
+        <div class="sbox"><span class="sico">&#128269;</span><input type="text" placeholder="Search batch, job, client..." id="stock-search" oninput="renderStockPage()"></div>
+        <select class="fsel" id="stock-status-filter" onchange="renderStockPage()">
+          <option value="">All Status</option>
+          <option value="in_stock">In Stock</option>
+          <option value="partially_dispatched">Partially Dispatched</option>
+          <option value="fully_dispatched">Fully Dispatched</option>
+        </select>
+        <select class="fsel" id="stock-pitch-filter" onchange="renderStockPage()">
+          <option value="">All Pitches</option>
+          <option>P1.66</option><option>P1.86</option><option>P2</option><option>P2.5</option>
+          <option>P3</option><option>P4</option><option>P4.4</option><option>P4.81</option>
+          <option>P5</option><option>P10</option>
+        </select>
+      </div>
+      <div id="stock-content"></div>
     </div>
 
     <!-- ══════════ SETTINGS PAGE ══════════ -->
@@ -1437,6 +1466,7 @@ async function renderStockPage(){
     updateStockNB();return;
   }
 
+  var canEdit=CU&&(CU.is_admin||CU.is_senior);
   document.getElementById('stock-content').innerHTML=items.map(function(s){
     var job=allJobs.find(function(j){return j.id===s.job_id;});
     var pct=s.qty_received>0?Math.round((s.qty_dispatched/s.qty_received)*100):0;
@@ -1461,7 +1491,7 @@ async function renderStockPage(){
         '</div>'+
         '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
           '<span class="bdg '+stockStatusClass(s.status)+'">'+stockStatusLabel(s.status)+'</span>'+
-          '<button class="btn bcyan bsm" onclick="openDispatchFor(''+s.id+'')">&#8599; Dispatch</button>'+
+          (canEdit?'<button class="btn bcyan bsm" onclick="openDispatchFor(''+s.id+'')">&#8599; Dispatch</button>'+:'')+
           '<button class="btn bout bsm" onclick="openStockDetail(''+s.id+'')">&#128269; Detail</button>'+
         '</div>'+
       '</div>'+
@@ -1635,6 +1665,7 @@ async function openStockDetail(stockId){
   var pct=s.qty_received>0?Math.round((s.qty_dispatched/s.qty_received)*100):0;
   var barColor=s.status==='fully_dispatched'?'var(--cr)':s.status==='partially_dispatched'?'var(--cy)':'var(--cg)';
 
+  var canEdit=CU&&(CU.is_admin||CU.is_senior);
   document.getElementById('m-stock-detail-ttl').textContent=s.batch+' — '+s.job_name;
   document.getElementById('m-stock-detail-body').innerHTML=
     '<div class="stock-meta" style="margin-bottom:16px">'+
