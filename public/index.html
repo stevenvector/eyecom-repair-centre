@@ -2048,11 +2048,11 @@ async function renderStockPage(){
           '<span style="font-family:Rajdhani,sans-serif;font-size:17px;font-weight:700;color:var(--c1)">'+s.batch+'</span>'+
           '<span style="margin-left:10px;background:rgba(168,85,247,.1);color:var(--cp);padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600">'+(s.pitch||'-')+'</span>'+
           '<div style="font-size:13px;color:var(--tp);margin-top:3px">'+s.job_name+'</div>'+
-          '<div style="font-size:12px;color:var(--tm)">'+s.client+(job?' . <a onclick="cm(\'m-stock-detail\');viewJob(\''+s.job_id+'\')" style="color:var(--c1);cursor:pointer">View Job</a>':'')+'</div>'+
+        '<div style="font-size:12px;color:var(--tm)">'+s.client+(job?' . <a onclick="cm(\'m-stock-detail\');viewJob(\''+s.job_id+'\')" style="color:var(--c1);cursor:pointer">View Job</a>':'')+'</div>'+
         '</div>'+
         '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
           '<span class="bdg '+stockStatusClass(s.status)+'">'+stockStatusLabel(s.status)+'</span>'+
-          (canEdit?'<button class="btn bcyan bsm" onclick="openDispatchFor(\''+s.id+'\')">&#8599; Dispatch</button>':'')+''+
+          (canEdit?'<button class="btn bcyan bsm" onclick="openDispatchFor(\''+s.id+'\')">&#8599; Dispatch</button>':'')+
           '<button class="btn bout bsm" onclick="openStockDetail(\''+s.id+'\')">&#128269; Detail</button>'+
         '</div>'+
       '</div>'+
@@ -2682,75 +2682,86 @@ function openLightbox(url) {
 
 
 
+// SCANNER STATE
+var _scanStream      = null;
+var _scanRAF         = null;
+var _scanCanvas      = null;
+var _scanCtx         = null;
+var _lastScanTime    = 0;
+var _scannerTargetId = null;
+var _torchOn         = false;
+
 async function openScanner(targetInputId) {
   _scannerTargetId = targetInputId;
 
-  var statusEl  = document.getElementById('scan-status');
-  var manualEl  = document.getElementById('scan-manual-input');
-  var overlay   = document.getElementById('scan-overlay');
-  var video     = document.getElementById('scan-video');
+  var statusEl = document.getElementById('scan-status');
+  var manualEl = document.getElementById('scan-manual-input');
+  var overlay  = document.getElementById('scan-overlay');
+  var video    = document.getElementById('scan-video');
 
   if (manualEl) manualEl.value = '';
   if (statusEl) statusEl.textContent = 'Starting camera...';
   overlay.classList.add('open');
 
-  // Stop any previous stream
+  // Stop any previous stream safely
   _stopScan();
 
-  // Check libraries loaded
+  // Check libraries
   var jsqrOk   = typeof jsQR   !== 'undefined';
   var quaggaOk = typeof Quagga !== 'undefined';
   if (!jsqrOk && !quaggaOk) {
-    if (statusEl) statusEl.textContent = 'Scanner unavailable - use manual entry';
-    toast('Scanner libraries not loaded. Use manual entry below.', 'error');
+    if (statusEl) statusEl.textContent = 'Scanner unavailable - use manual entry below';
+    toast('Scanner libraries not loaded. Use manual entry.', 'error');
     return;
   }
 
-  // Set up canvas for frame capture
+  // Set up canvas
   _scanCanvas = document.getElementById('scan-canvas');
-  _scanCtx    = _scanCanvas ? _scanCanvas.getContext('2d', { willReadFrequently: true }) : null;
+  _scanCtx    = _scanCanvas ? _scanCanvas.getContext('2d', {willReadFrequently:true}) : null;
 
   try {
-    // Get camera - prefer rear
     _scanStream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode:  { ideal: 'environment' },
-        width:       { ideal: 1280 },
-        height:      { ideal: 720 }
-      },
+      video: { facingMode:{ideal:'environment'}, width:{ideal:1280}, height:{ideal:720} },
       audio: false
     });
 
     video.srcObject = _scanStream;
-    video.setAttribute('playsinline', true);
 
-    await new Promise(function(resolve, reject) {
+    await new Promise(function(resolve) {
       video.onloadedmetadata = resolve;
-      video.onerror = reject;
-      setTimeout(resolve, 3000); // safety timeout
+      setTimeout(resolve, 3000);
     });
-
     await video.play();
 
-    if (statusEl) statusEl.textContent = 'Scanning... point camera at code';
-
-    // Start decode loop
+    if (statusEl) statusEl.textContent = 'Scanning - point camera at code';
     _decodeTick(video, statusEl, jsqrOk, quaggaOk);
 
   } catch(err) {
-    console.error('Camera error:', err);
     _stopScan();
     overlay.classList.remove('open');
-    var msg = err.name || '';
-    if (msg === 'NotAllowedError' || msg === 'PermissionDeniedError') {
-      toast('Camera permission denied. Allow camera access in your browser settings then try again.', 'error');
-    } else if (msg === 'NotFoundError' || msg === 'DevicesNotFoundError') {
-      toast('No camera found on this device.', 'error');
+    var name = (err && err.name) ? err.name : '';
+    if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+      toast('Camera permission denied. Please allow camera access and try again.', 'error');
+    } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+      toast('No camera found on this device. Use manual entry.', 'error');
     } else {
-      toast('Camera error: ' + (err.message || msg) + '. Use manual entry.', 'error');
+      toast('Camera error: ' + ((err && err.message) || name || 'unknown') + '. Use manual entry.', 'error');
     }
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 function _decodeTick(video, statusEl, jsqrOk, quaggaOk) {
   if (!_scanStream) return; // stopped
@@ -2808,9 +2819,7 @@ function _decodeTick(video, statusEl, jsqrOk, quaggaOk) {
   });
 }
 
-function _canvasToDataUrl() {
-  try { return _scanCanvas ? _scanCanvas.toDataURL('image/png') : null; } catch(e) { return null; }
-}
+
 
 function _onScanResult(text) {
   if (!text || !text.trim()) return;
@@ -2824,12 +2833,14 @@ function _onScanResult(text) {
 function _stopScan() {
   if (_scanRAF) { cancelAnimationFrame(_scanRAF); _scanRAF = null; }
   if (_scanStream) {
-    _scanStream.getTracks().forEach(function(t) { t.stop(); });
+    try { _scanStream.getTracks().forEach(function(t){ t.stop(); }); } catch(e) {}
     _scanStream = null;
   }
   _torchOn = false;
-  var video = document.getElementById('scan-video');
-  if (video) { video.srcObject = null; }
+  try {
+    var video = document.getElementById('scan-video');
+    if (video) video.srcObject = null;
+  } catch(e) {}
 }
 
 function closeScanner() {
