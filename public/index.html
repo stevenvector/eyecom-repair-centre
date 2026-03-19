@@ -250,6 +250,49 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
 .dt-item::before{content:'';position:absolute;left:-20px;top:14px;width:8px;height:8px;border-radius:50%;background:var(--c1);border:2px solid var(--bgc)}
 .dt-time{color:var(--tm);font-size:11px;margin-top:2px}
 
+
+/* ===== DAMAGE LOG ===== */
+.damage-type-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:12px}
+.dtype-chip{display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--bg);border:1px solid var(--bdr);border-radius:8px;cursor:pointer;font-size:13px;transition:all .15s;user-select:none}
+.dtype-chip.selected{border-color:var(--cr);background:rgba(255,51,85,.1);color:var(--cr)}
+.dtype-chip .dtype-ico{font-size:15px}
+.severity-pills{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.sev-pill{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--bdr);color:var(--tm);transition:all .15s;user-select:none}
+.sev-pill.active{border-color:transparent}
+.sev-pill[data-sev="Low"].active{background:rgba(0,255,136,.15);color:var(--cg);border-color:var(--cg)}
+.sev-pill[data-sev="Medium"].active{background:rgba(255,204,0,.15);color:var(--cy);border-color:var(--cy)}
+.sev-pill[data-sev="High"].active{background:rgba(255,51,85,.15);color:var(--cr);border-color:var(--cr)}
+.sev-pill[data-sev="Write-off"].active{background:rgba(168,85,247,.15);color:var(--cp);border-color:var(--cp)}
+.scan-field{position:relative}
+.scan-field input{padding-right:40px}
+.scan-btn{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--c1);cursor:pointer;font-size:18px;line-height:1;padding:4px}
+.scan-btn:hover{color:#33deff}
+.img-preview{width:100%;max-height:200px;object-fit:contain;border-radius:8px;border:1px solid var(--bdr);margin-top:8px;background:var(--bg)}
+.img-drop-zone{border:2px dashed var(--bdr);border-radius:8px;padding:24px;text-align:center;cursor:pointer;transition:all .15s;margin-top:8px}
+.img-drop-zone:hover,.img-drop-zone.drag-over{border-color:var(--c1);background:rgba(0,212,255,.05)}
+.img-drop-zone .dz-ico{font-size:28px;margin-bottom:8px;opacity:.5}
+.img-drop-zone p{font-size:12px;color:var(--tm)}
+.damage-card{background:var(--bgc);border:1px solid var(--bdr);border-radius:10px;overflow:hidden;margin-bottom:10px}
+.damage-card-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--bdr);flex-wrap:wrap;gap:8px}
+.damage-card-body{padding:14px 16px}
+.damage-meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:10px}
+.damage-img-thumb{width:80px;height:60px;object-fit:cover;border-radius:6px;border:1px solid var(--bdr);cursor:pointer;flex-shrink:0}
+.sev-badge-Low{background:rgba(0,255,136,.1);color:var(--cg)}
+.sev-badge-Medium{background:rgba(255,204,0,.1);color:var(--cy)}
+.sev-badge-High{background:rgba(255,51,85,.1);color:var(--cr)}
+.sev-badge-Write-off{background:rgba(168,85,247,.1);color:var(--cp)}
+/* Scanner overlay */
+.scan-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:2000;flex-direction:column;align-items:center;justify-content:center}
+.scan-overlay.open{display:flex}
+.scan-video{width:min(400px,90vw);border-radius:12px;border:3px solid var(--c1)}
+.scan-target{position:relative;margin-bottom:16px}
+.scan-target::before,.scan-target::after{content:'';position:absolute;width:24px;height:24px;border-color:var(--c1);border-style:solid}
+.scan-target::before{top:-4px;left:-4px;border-width:3px 0 0 3px;border-radius:4px 0 0 0}
+.scan-target::after{top:-4px;right:-4px;border-width:3px 3px 0 0;border-radius:0 4px 0 0}
+.img-lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.94);z-index:2000;align-items:center;justify-content:center;cursor:zoom-out}
+.img-lightbox.open{display:flex}
+.img-lightbox img{max-width:90vw;max-height:90vh;border-radius:10px;object-fit:contain}
+
 </style>
 </head>
 <body>
@@ -274,6 +317,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
       <div class="lerr" id="lerr">Invalid credentials. Please try again.</div>
       <div class="lconn loading" id="conn-status"><span class="spin"></span>Connecting to database...</div>
       <span class="forgot-link" onclick="toggleForgot()">Forgot your password?</span>
+      <span class="forgot-link" style="font-size:11px;opacity:.5;margin-top:4px" onclick="hardReset()">Having trouble? Clear app cache</span>
     </div>
 
     <!-- Forgot password flow -->
@@ -320,6 +364,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
       <div class="ni" onclick="showPage('active');closeSB()"><span class="ico">▶</span>Active Work<span class="nb" id="nb-active" style="display:none">0</span></div>
       <div class="ni" onclick="showPage('worklog');closeSB()"><span class="ico">📋</span>Work Logs</div>
       <div class="ni" onclick="showPage('stock');closeSB()"><span class="ico">📦</span>Stock<span class="nb" id="nb-stock" style="display:none">0</span></div>
+      <div class="ni" onclick="showPage('damage');closeSB()"><span class="ico">&#9888;</span>Damage Log<span class="nb" id="nb-damage" style="display:none">0</span></div>
       <div class="sdiv"></div>
       <div class="slbl">Admin / Senior</div>
       <div class="ni ao" onclick="showPage('reports');closeSB()"><span class="ico">📊</span>Reports</div>
@@ -437,6 +482,35 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
     </div>
 
     <!-- ══════════ SETTINGS PAGE ══════════ -->
+
+    <!-- DAMAGE LOG PAGE -->
+    <div class="page" id="page-damage">
+      <div class="ph">
+        <div>
+          <div class="pt">Damage Log</div>
+          <div style="font-size:12px;color:var(--tm);margin-top:2px" id="damage-summary-line">Loading...</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn bout bsm" onclick="openDamageReport()">&#8659; PDF Report</button>
+          <button class="btn bcyan" onclick="openLogDamage()">+ Log Damage</button>
+        </div>
+      </div>
+      <div class="tb2">
+        <div class="sbox"><span class="sico">&#128269;</span><input type="text" placeholder="Search serial, code, job..." id="damage-search" oninput="renderDamagePage()"></div>
+        <select class="fsel" id="damage-sev-filter" onchange="renderDamagePage()">
+          <option value="">All Severities</option>
+          <option value="Low">Low</option>
+          <option value="Medium">Medium</option>
+          <option value="High">High</option>
+          <option value="Write-off">Write-off</option>
+        </select>
+        <select class="fsel" id="damage-job-filter" onchange="renderDamagePage()">
+          <option value="">All Jobs</option>
+        </select>
+      </div>
+      <div id="damage-content"></div>
+    </div>
+
     <div class="page" id="page-settings">
       <div class="ph"><div class="pt">Settings</div></div>
       <div class="settings-layout">
@@ -741,6 +815,138 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
   <div class="modal xl">
     <div class="mhd"><div class="mttl" id="m-stock-detail-ttl">Stock Detail</div><button class="mcls" onclick="cm('m-stock-detail')">&#215;</button></div>
     <div id="m-stock-detail-body"></div>
+  </div>
+</div>
+
+
+<!-- Log Damage Modal -->
+<div class="mover" id="m-damage">
+  <div class="modal lg">
+    <div class="mhd">
+      <div class="mttl">Log Damaged Module</div>
+      <button class="mcls" onclick="cm('m-damage')">&#215;</button>
+    </div>
+    <div class="fgrid">
+      <!-- Serial Number -->
+      <div class="fg2">
+        <label>Serial Number *</label>
+        <div class="scan-field">
+          <input type="text" id="dmg-serial" placeholder="Scan or type serial number...">
+          <button class="scan-btn" onclick="openScanner('dmg-serial')" title="Scan QR/Barcode">&#9638;</button>
+        </div>
+      </div>
+      <!-- Module Code -->
+      <div class="fg2">
+        <label>Module Code</label>
+        <div class="scan-field">
+          <input type="text" id="dmg-code" placeholder="Scan or type module code...">
+          <button class="scan-btn" onclick="openScanner('dmg-code')" title="Scan QR/Barcode">&#9638;</button>
+        </div>
+      </div>
+      <!-- Job Reference -->
+      <div class="fg2 full">
+        <label>Link to Job (optional)</label>
+        <select id="dmg-job"><option value="">No job reference</option></select>
+      </div>
+      <!-- Damage Types -->
+      <div class="fg2 full">
+        <label>Damage Types *</label>
+        <div class="damage-type-grid" id="dmg-type-grid">
+          <div class="dtype-chip" data-type="pixel_lt3" onclick="toggleDmgType(this)"><span class="dtype-ico">&#128308;</span>&lt;3 Pixel</div>
+          <div class="dtype-chip" data-type="pixel_gt3" onclick="toggleDmgType(this)"><span class="dtype-ico">&#128308;</span>&gt;3 Pixel</div>
+          <div class="dtype-chip" data-type="track" onclick="toggleDmgType(this)"><span class="dtype-ico">&#9889;</span>Track Damage</div>
+          <div class="dtype-chip" data-type="chip" onclick="toggleDmgType(this)"><span class="dtype-ico">&#129520;</span>Chip Fault</div>
+          <div class="dtype-chip" data-type="physical" onclick="toggleDmgType(this)"><span class="dtype-ico">&#128165;</span>Physical</div>
+          <div class="dtype-chip" data-type="water" onclick="toggleDmgType(this)"><span class="dtype-ico">&#128167;</span>Water Damage</div>
+          <div class="dtype-chip" data-type="burn" onclick="toggleDmgType(this)"><span class="dtype-ico">&#128293;</span>Burn Mark</div>
+          <div class="dtype-chip" data-type="ber" onclick="toggleDmgType(this)"><span class="dtype-ico">&#9762;</span>B.E.R</div>
+          <div class="dtype-chip" data-type="other" onclick="toggleDmgType(this)"><span class="dtype-ico">&#8943;</span>Other</div>
+        </div>
+      </div>
+      <!-- Severity -->
+      <div class="fg2 full">
+        <label>Severity</label>
+        <div class="severity-pills">
+          <div class="sev-pill" data-sev="Low" onclick="selectSeverity('Low')">Low</div>
+          <div class="sev-pill active" data-sev="Medium" onclick="selectSeverity('Medium')">Medium</div>
+          <div class="sev-pill" data-sev="High" onclick="selectSeverity('High')">High</div>
+          <div class="sev-pill" data-sev="Write-off" onclick="selectSeverity('Write-off')">Write-off</div>
+        </div>
+      </div>
+      <!-- Notes -->
+      <div class="fg2 full">
+        <label>Damage Notes</label>
+        <textarea id="dmg-notes" placeholder="Describe the damage in detail..."></textarea>
+      </div>
+      <!-- Photo -->
+      <div class="fg2 full">
+        <label>Photo of Damage</label>
+        <div class="img-drop-zone" id="dmg-drop-zone" onclick="document.getElementById('dmg-photo-input').click()" ondragover="dmgDragOver(event)" ondragleave="dmgDragLeave(event)" ondrop="dmgDrop(event)">
+          <div class="dz-ico">&#128247;</div>
+          <p>Tap to take photo or choose file<br><span style="opacity:.6">JPG, PNG, WEBP up to 5MB</span></p>
+        </div>
+        <input type="file" id="dmg-photo-input" accept="image/*" capture="environment" style="display:none" onchange="dmgPhotoSelected(event)">
+        <img id="dmg-photo-preview" class="img-preview" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px;display:none" id="dmg-photo-clear-row">
+          <span style="font-size:11px;color:var(--tm)" id="dmg-photo-name"></span>
+          <button class="btn bdanger bsm" onclick="clearDmgPhoto()">Remove</button>
+        </div>
+      </div>
+    </div>
+    <div class="mft">
+      <button class="btn bout" onclick="cm('m-damage')">Cancel</button>
+      <button class="btn bcyan" id="dmg-submit-btn" onclick="submitDamageLog()">&#10003; Log Damage</button>
+    </div>
+  </div>
+</div>
+
+<!-- Damage Detail Modal -->
+<div class="mover" id="m-damage-detail">
+  <div class="modal lg">
+    <div class="mhd">
+      <div class="mttl" id="m-dmg-detail-title">Damage Detail</div>
+      <button class="mcls" onclick="cm('m-damage-detail')">&#215;</button>
+    </div>
+    <div id="m-dmg-detail-body"></div>
+  </div>
+</div>
+
+<!-- Scanner Overlay -->
+<div class="scan-overlay" id="scan-overlay">
+  <div class="scan-target">
+    <video id="scan-video" class="scan-video" autoplay playsinline muted></video>
+  </div>
+  <div style="color:var(--tp);font-size:14px;margin-bottom:16px">Point camera at QR code or barcode</div>
+  <div style="display:flex;gap:10px">
+    <button class="btn bout" onclick="closeScanner()">Cancel</button>
+    <button class="btn bout" onclick="toggleTorch()" id="torch-btn">&#128294; Torch</button>
+  </div>
+</div>
+
+<!-- Image Lightbox -->
+<div class="img-lightbox" id="img-lightbox" onclick="document.getElementById('img-lightbox').classList.remove('open')">
+  <img id="lightbox-img" src="" alt="Damage photo">
+</div>
+
+<!-- Damage PDF Report Modal -->
+<div class="mover" id="m-damage-report">
+  <div class="modal sm">
+    <div class="mhd"><div class="mttl">Damage Log PDF Report</div><button class="mcls" onclick="cm('m-damage-report')">&#215;</button></div>
+    <div style="display:flex;flex-direction:column;gap:13px">
+      <div class="fg2"><label>Date From</label><input type="date" id="dmg-rep-from"></div>
+      <div class="fg2"><label>Date To</label><input type="date" id="dmg-rep-to"></div>
+      <div class="fg2"><label>Filter by Job</label><select id="dmg-rep-job"><option value="">All Jobs</option></select></div>
+      <div class="fg2"><label>Filter by Severity</label>
+        <select id="dmg-rep-sev">
+          <option value="">All Severities</option>
+          <option>Low</option><option>Medium</option><option>High</option><option>Write-off</option>
+        </select>
+      </div>
+    </div>
+    <div class="mft">
+      <button class="btn bout" onclick="cm('m-damage-report')">Cancel</button>
+      <button class="btn bcyan" onclick="downloadDamagePDF()">&#8659; Download PDF</button>
+    </div>
   </div>
 </div>
 
@@ -1134,8 +1340,27 @@ async function renderDash(){
 function refreshAllTables(){if(document.getElementById('page-dashboard').classList.contains('active'))renderJobsTable();if(document.getElementById('page-jobs').classList.contains('active'))renderAllJobs();}
 async function getSessionsMap(){var sessions=await loadSessions();var map={};sessions.forEach(function(s){if(!map[s.job_id])map[s.job_id]=[];map[s.job_id].push(s);});return map;}
 function activeTechsHtml(sessions){if(!sessions||!sessions.length)return'<span style="color:var(--tm);font-size:12px">-</span>';return sessions.map(function(s){return'<span class="chip" style="background:rgba(0,255,136,.1);color:var(--cg)"><span class="ldot2"></span>'+userName(s.user_id).split(' ')[0]+'</span>';}).join(' ');}
-async function renderJobsTable(){var sf=document.getElementById('dsf').value,pf=document.getElementById('dpf').value,sessMap=await getSessionsMap();var f=allJobs;if(!CU.is_admin&&!CU.is_senior)f=f.filter(function(j){return j.assigned_to===CU.id||(sessMap[j.id]||[]).some(function(s){return s.user_id===CU.id;});});if(sf)f=f.filter(function(j){return j.status===sf;});if(pf)f=f.filter(function(j){return j.priority===pf;});document.getElementById('jtb').innerHTML=jobRows(f,sessMap,false);}
-async function renderAllJobs(){var s=(document.getElementById('jsearch').value||'').toLowerCase(),sf=document.getElementById('jasf').value,pf=document.getElementById('japf').value,sessMap=await getSessionsMap();var f=allJobs;if(s)f=f.filter(function(j){return j.job_name.toLowerCase().includes(s)||j.client.toLowerCase().includes(s)||j.job_number.toLowerCase().includes(s)||(j.batch||'').toLowerCase().includes(s);});if(sf)f=f.filter(function(j){return j.status===sf;});if(pf)f=f.filter(function(j){return j.priority===pf;});document.getElementById('ajtb').innerHTML=jobRows(f,sessMap,true);}
+async function renderJobsTable(){
+  var sf=document.getElementById('dsf')?document.getElementById('dsf').value:'';
+  var pf=document.getElementById('dpf')?document.getElementById('dpf').value:'';
+  var sessMap=await getSessionsMap();
+  var f=allJobs;
+  if(!CU.is_admin&&!CU.is_senior)f=f.filter(function(j){return j.assigned_to===CU.id||(sessMap[j.id]||[]).some(function(s){return s.user_id===CU.id;});});
+  if(sf)f=f.filter(function(j){return j.status===sf;});
+  if(pf)f=f.filter(function(j){return j.priority===pf;});
+  document.getElementById('jtb').innerHTML=jobRows(f,sessMap,false);
+}
+async function renderAllJobs(){
+  var s=(document.getElementById('jsearch').value||'').toLowerCase();
+  var sf=document.getElementById('jasf').value;
+  var pf=document.getElementById('japf').value;
+  var sessMap=await getSessionsMap();
+  var f=allJobs;
+  if(s)f=f.filter(function(j){return j.job_name.toLowerCase().includes(s)||j.client.toLowerCase().includes(s)||j.job_number.toLowerCase().includes(s)||(j.batch||'').toLowerCase().includes(s);});
+  if(sf)f=f.filter(function(j){return j.status===sf;});
+  if(pf)f=f.filter(function(j){return j.priority===pf;});
+  document.getElementById('ajtb').innerHTML=jobRows(f,sessMap,true);
+}
 function jobRows(arr,sessMap,showDate){
   if(!arr.length)return'<tr><td colspan="12"><div class="empty"><div class="eico"> </div><p class="etxt">No jobs found</p></div></td></tr>';
   return arr.map(function(j){
@@ -1149,7 +1374,7 @@ function jobRows(arr,sessMap,showDate){
     if(CU.is_admin)acts+=' <button class="btn bdanger bsm" onclick="delJob(\''+j.id+'\')"> </button>';
     var dc=showDate?'<td style="font-size:12px;color:var(--tm)">'+(j.job_date?j.job_date.slice(0,10):'-')+'</td>':'';
     var bc2=showDate?'<td><code style="font-size:11px;background:rgba(0,212,255,.07);padding:2px 5px;border-radius:4px">'+(j.batch||'-')+'</code></td>':'';
-    return'<tr><td><span style="font-family:Rajdhani,sans-serif;color:var(--c1);font-weight:600">'+j.job_number+'</span></td><td><span style="font-weight:500">'+j.job_name+'</span></td><td style="color:var(--tm)">'+j.client+'</td>'+bc2+'<td><span style="background:rgba(168,85,247,.1);color:var(--cp);padding:2px 7px;border-radius:4px;font-size:12px;font-weight:600">'+(j.pitch||'-')+'</span></td><td style="text-align:center">'+j.qty+'</td><td><span class="pb '+pc2+'">'+j.priority+'</span></td><td><span class="bdg '+sc2+'"><span class="bdot"></span>'+j.status+'</span></td><td>'+activeTechsHtml(sessions)+'</td>'+dc+'<td><div class="abtns">'+acts+'</div></td></tr>';
+    return '<tr><td><span style="font-family:Rajdhani,sans-serif;color:var(--c1);font-weight:600">'+j.job_number+'</span></td><td><span style="font-weight:500">'+j.job_name+'</span></td><td style="color:var(--tm)">'+j.client+'</td>'+bc2+'<td><span style="background:rgba(168,85,247,.1);color:var(--cp);padding:2px 7px;border-radius:4px;font-size:12px;font-weight:600">'+(j.pitch||'-')+'</span></td><td style="text-align:center">'+j.qty+'</td><td><span class="pb '+pc2+'">'+j.priority+'</span></td><td><span class="bdg '+sc2+'"><span class="bdot"></span>'+j.status+'</span></td><td>'+activeTechsHtml(sessions)+'</td>'+dc+'<td><div class="abtns">'+acts+'</div></td></tr>';
   }).join('');
 }
 
@@ -1688,7 +1913,8 @@ async function renderStockPage(){
 
   if(!items.length){
     document.getElementById('stock-content').innerHTML='<div class="empty"><div class="eico">&#128230;</div><p class="etxt">No stock items found</p></div>';
-    updateStockNB();return;
+    updateStockNB();
+    return;
   }
 
   var canEdit=CU&&(CU.is_admin||CU.is_senior);
@@ -1712,12 +1938,12 @@ async function renderStockPage(){
           '<span style="font-family:Rajdhani,sans-serif;font-size:17px;font-weight:700;color:var(--c1)">'+s.batch+'</span>'+
           '<span style="margin-left:10px;background:rgba(168,85,247,.1);color:var(--cp);padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600">'+(s.pitch||'-')+'</span>'+
           '<div style="font-size:13px;color:var(--tp);margin-top:3px">'+s.job_name+'</div>'+
-          '<div style="font-size:12px;color:var(--tm)">'+s.client+(job?' . <a onclick="cm('m-stock-detail');viewJob(''+s.job_id+'')" style="color:var(--c1);cursor:pointer">View Job</a>':'')+'</div>'+
+          '<div style="font-size:12px;color:var(--tm)">'+s.client+(job?' . <a onclick="cm(\'m-stock-detail\');viewJob(\''+s.job_id+'\')" style="color:var(--c1);cursor:pointer">View Job</a>':'')+'</div>'+
         '</div>'+
         '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
           '<span class="bdg '+stockStatusClass(s.status)+'">'+stockStatusLabel(s.status)+'</span>'+
-          (canEdit?'<button class="btn bcyan bsm" onclick="openDispatchFor(''+s.id+'')">&#8599; Dispatch</button>'+:'')+
-          '<button class="btn bout bsm" onclick="openStockDetail(''+s.id+'')">&#128269; Detail</button>'+
+          (canEdit?'<button class="btn bcyan bsm" onclick="openDispatchFor(\''+s.id+'\')">&#8599; Dispatch</button>':'')+
+          '<button class="btn bout bsm" onclick="openStockDetail(\''+s.id+'\')">&#128269; Detail</button>'+
         '</div>'+
       '</div>'+
       '<div class="stock-card-body">'+
@@ -1730,7 +1956,7 @@ async function renderStockPage(){
         '<div class="stock-bar-wrap"><div class="stock-bar" style="width:'+pct+'%;background:'+barColor+'"></div></div>'+
         '<div style="font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--tm);margin-bottom:6px">Recent Dispatches</div>'+
         dispRows+
-        (allDispatches.filter(function(d){return d.stock_id===s.id;}).length>3?'<div style="font-size:12px;color:var(--c1);cursor:pointer;margin-top:6px" onclick="openStockDetail(''+s.id+'')">View all dispatches...</div>':'')+
+        (allDispatches.filter(function(d){return d.stock_id===s.id;}).length>3?'<div style="font-size:12px;color:var(--c1);cursor:pointer;margin-top:6px" onclick="openStockDetail(\''+s.id+'\')">View all dispatches...</div>':'')+
       '</div>'+
     '</div>';
   }).join('');
@@ -1923,8 +2149,8 @@ async function openStockDetail(stockId){
       }).join('')+'</div>'
     :'<div class="empty" style="padding:20px 0"><p class="etxt">No dispatches yet</p></div>')+
     '<div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">'+
-      '<button class="btn bcyan" onclick="cm('m-stock-detail');openDispatchFor(''+s.id+'')">&#8599; Dispatch Stock</button>'+
-      (job?'<button class="btn bout" onclick="cm('m-stock-detail');viewJob(''+s.job_id+'')">&#128269; View Job</button>':'')+
+      '<button class="btn bcyan" onclick="cm(\'m-stock-detail\');openDispatchFor(\''+s.id+'\')">&#8599; Dispatch Stock</button>'+
+      (job?'<button class="btn bout" onclick="cm(\'m-stock-detail\');viewJob(\''+s.job_id+'\')">&#128269; View Job</button>':'')+
     '</div>';
   om('m-stock-detail');
 }
@@ -1941,6 +2167,538 @@ setupUI=async function(){
   }
   await loadStock();
   updateStockNB();
+};
+
+
+// ===============================
+//  HARD RESET - clears all caches
+// ===============================
+function hardReset(){
+  if(!confirm('This will clear all cached app data and reload. Continue?')) return;
+  // Clear localStorage and sessionStorage
+  try { localStorage.clear(); } catch(e) {}
+  try { sessionStorage.clear(); } catch(e) {}
+  // Unregister any service workers
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.getRegistrations().then(function(regs){
+      regs.forEach(function(reg){ reg.unregister(); });
+    });
+  }
+  // Clear all caches
+  if('caches' in window){
+    caches.keys().then(function(keys){
+      keys.forEach(function(key){ caches.delete(key); });
+    });
+  }
+  // Force reload bypassing cache
+  setTimeout(function(){ window.location.reload(true); }, 300);
+}
+
+
+// ==============================================
+//  DAMAGE LOG SYSTEM
+// ==============================================
+var allDamageLogs = [];
+var _dmgSeverity = 'Medium';
+var _dmgPhotoFile = null;
+var _dmgPhotoDataUrl = null;
+var _scannerStream = null;
+var _scannerTargetId = null;
+var _scannerInterval = null;
+var _torchOn = false;
+
+// -- Load damage logs --------------------------
+async function loadDamageLogs() {
+  var{data} = await sb.from('rc_damage_logs').select('*').order('logged_at', {ascending:false});
+  allDamageLogs = data || [];
+  updateDamageNB();
+}
+
+function updateDamageNB() {
+  var nb = document.getElementById('nb-damage');
+  if (nb) { nb.textContent = allDamageLogs.length; nb.style.display = allDamageLogs.length ? '' : 'none'; }
+}
+
+// -- Render damage page ------------------------
+async function renderDamagePage() {
+  await loadDamageLogs();
+  // Populate job filter
+  var jf = document.getElementById('damage-job-filter');
+  if (jf) {
+    jf.innerHTML = '<option value="">All Jobs</option>' +
+      allJobs.map(function(j){ return '<option value="'+j.id+'">'+j.job_number+' - '+j.job_name+'</option>'; }).join('');
+  }
+  var search = (document.getElementById('damage-search').value || '').toLowerCase();
+  var sevF = document.getElementById('damage-sev-filter').value;
+  var jobF = document.getElementById('damage-job-filter').value;
+  var items = allDamageLogs;
+  if (search) items = items.filter(function(d){
+    return d.serial_number.toLowerCase().includes(search) ||
+           (d.module_code||'').toLowerCase().includes(search) ||
+           (d.damage_notes||'').toLowerCase().includes(search);
+  });
+  if (sevF) items = items.filter(function(d){ return d.severity === sevF; });
+  if (jobF) items = items.filter(function(d){ return d.job_id === jobF; });
+
+  // Summary
+  var sl = document.getElementById('damage-summary-line');
+  if (sl) sl.textContent = allDamageLogs.length + ' entries - ' +
+    allDamageLogs.filter(function(d){return d.severity==='Write-off';}).length + ' write-offs';
+
+  if (!items.length) {
+    document.getElementById('damage-content').innerHTML = '<div class="empty"><div class="eico">&#9888;</div><p class="etxt">No damage entries found</p></div>';
+    return;
+  }
+
+  var SUPA_URL = 'https://educbtcexgflpaxvjhwa.supabase.co';
+  document.getElementById('damage-content').innerHTML = items.map(function(d) {
+    var job = allJobs.find(function(j){ return j.id === d.job_id; });
+    var loggedBy = allUsers.find(function(u){ return u.id === d.logged_by; });
+    var types = (d.damage_types || []).map(dmgTypeLabel).join(', ') || 'Not specified';
+    var sevClass = 'sev-badge-' + d.severity;
+    var imgHtml = '';
+    if (d.image_url) {
+      imgHtml = '<img class="damage-img-thumb" src="' + d.image_url + '" alt="damage" onclick="openLightbox(\'' + d.image_url.replace(/'/g,"\\'") + '\')">';
+    }
+    return '<div class="damage-card">' +
+      '<div class="damage-card-header">' +
+        '<div>' +
+          '<div style="font-family:Rajdhani,sans-serif;font-size:16px;font-weight:700;color:var(--c1)">' + escHtml(d.serial_number) + '</div>' +
+          (d.module_code ? '<div style="font-size:12px;color:var(--tm)">Code: ' + escHtml(d.module_code) + '</div>' : '') +
+        '</div>' +
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+          '<span class="bdg ' + sevClass + '">' + d.severity + '</span>' +
+          (job ? '<span class="chip">&#128196; ' + job.job_number + '</span>' : '') +
+          '<button class="btn bout bsm" onclick="openDamageDetail(\'' + d.id + '\')">&#128269; Detail</button>' +
+          (CU&&(CU.is_admin||CU.is_senior) ? '<button class="btn bdanger bsm" onclick="deleteDamageLog(\'' + d.id + '\')">&#128465;</button>' : '') +
+        '</div>' +
+      '</div>' +
+      '<div class="damage-card-body">' +
+        '<div class="damage-meta-grid">' +
+          '<div class="dl"><div class="dlb">Damage Types</div><div class="dlv" style="font-size:12px">' + escHtml(types) + '</div></div>' +
+          '<div class="dl"><div class="dlb">Logged By</div><div class="dlv">' + (loggedBy ? loggedBy.name : '?') + '</div></div>' +
+          '<div class="dl"><div class="dlb">Date &amp; Time</div><div class="dlv" style="font-size:12px">' + new Date(d.logged_at).toLocaleString() + '</div></div>' +
+          (d.damage_notes ? '<div class="dl"><div class="dlb">Notes</div><div class="dlv" style="font-size:12px">' + escHtml(d.damage_notes) + '</div></div>' : '') +
+        '</div>' +
+        (imgHtml ? '<div style="display:flex;align-items:flex-start;gap:10px">' + imgHtml + '</div>' : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function dmgTypeLabel(t) {
+  var m = {pixel_lt3:'<3 Pixel',pixel_gt3:'>3 Pixel',track:'Track Damage',chip:'Chip Fault',
+           physical:'Physical',water:'Water Damage',burn:'Burn Mark',ber:'B.E.R',other:'Other'};
+  return m[t] || t;
+}
+
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// -- Open log damage modal ---------------------
+async function openLogDamage() {
+  // Reset form
+  ['dmg-serial','dmg-code','dmg-notes'].forEach(function(id){ document.getElementById(id).value = ''; });
+  document.querySelectorAll('.dtype-chip').forEach(function(c){ c.classList.remove('selected'); });
+  _dmgSeverity = 'Medium';
+  document.querySelectorAll('.sev-pill').forEach(function(p){
+    p.classList.toggle('active', p.getAttribute('data-sev') === 'Medium');
+  });
+  _dmgPhotoFile = null;
+  _dmgPhotoDataUrl = null;
+  document.getElementById('dmg-photo-preview').style.display = 'none';
+  document.getElementById('dmg-photo-preview').src = '';
+  document.getElementById('dmg-drop-zone').style.display = '';
+  document.getElementById('dmg-photo-clear-row').style.display = 'none';
+  document.getElementById('dmg-photo-input').value = '';
+
+  // Populate job select
+  var js2 = document.getElementById('dmg-job');
+  js2.innerHTML = '<option value="">No job reference</option>' +
+    allJobs.map(function(j){ return '<option value="'+j.id+'">'+j.job_number+' - '+j.job_name+' ('+j.client+')</option>'; }).join('');
+
+  om('m-damage');
+}
+
+// -- Damage type toggle ------------------------
+function toggleDmgType(el) {
+  el.classList.toggle('selected');
+}
+
+// -- Severity select ---------------------------
+function selectSeverity(sev) {
+  _dmgSeverity = sev;
+  document.querySelectorAll('.sev-pill').forEach(function(p){
+    p.classList.toggle('active', p.getAttribute('data-sev') === sev);
+  });
+}
+
+// -- Photo handling ----------------------------
+function dmgDragOver(e) { e.preventDefault(); document.getElementById('dmg-drop-zone').classList.add('drag-over'); }
+function dmgDragLeave(e) { document.getElementById('dmg-drop-zone').classList.remove('drag-over'); }
+function dmgDrop(e) {
+  e.preventDefault();
+  document.getElementById('dmg-drop-zone').classList.remove('drag-over');
+  var file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) processDmgPhoto(file);
+}
+function dmgPhotoSelected(e) {
+  var file = e.target.files[0];
+  if (file) processDmgPhoto(file);
+}
+function processDmgPhoto(file) {
+  if (file.size > 5242880) { toast('Image must be under 5MB','error'); return; }
+  _dmgPhotoFile = file;
+  var reader = new FileReader();
+  reader.onload = function(e2) {
+    _dmgPhotoDataUrl = e2.target.result;
+    var preview = document.getElementById('dmg-photo-preview');
+    preview.src = _dmgPhotoDataUrl;
+    preview.style.display = '';
+    document.getElementById('dmg-drop-zone').style.display = 'none';
+    document.getElementById('dmg-photo-name').textContent = file.name;
+    document.getElementById('dmg-photo-clear-row').style.display = 'flex';
+  };
+  reader.readAsDataURL(file);
+}
+function clearDmgPhoto() {
+  _dmgPhotoFile = null; _dmgPhotoDataUrl = null;
+  document.getElementById('dmg-photo-preview').style.display = 'none';
+  document.getElementById('dmg-photo-preview').src = '';
+  document.getElementById('dmg-drop-zone').style.display = '';
+  document.getElementById('dmg-photo-clear-row').style.display = 'none';
+  document.getElementById('dmg-photo-input').value = '';
+}
+
+// -- Submit damage log -------------------------
+async function submitDamageLog() {
+  var serial = document.getElementById('dmg-serial').value.trim();
+  if (!serial) { toast('Serial number is required','error'); return; }
+  var types = Array.from(document.querySelectorAll('.dtype-chip.selected')).map(function(el){ return el.getAttribute('data-type'); });
+  if (!types.length) { toast('Select at least one damage type','error'); return; }
+
+  var btn = document.getElementById('dmg-submit-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Saving...';
+
+  try {
+    var imageUrl = null;
+    var imageName = null;
+
+    // Upload photo to Supabase Storage if provided
+    if (_dmgPhotoFile) {
+      var ext = _dmgPhotoFile.name.split('.').pop();
+      imageName = 'dmg-' + Date.now() + '-' + serial.replace(/[^a-zA-Z0-9]/g,'_') + '.' + ext;
+      var{data:upData, error:upErr} = await sb.storage.from('damage-images').upload(imageName, _dmgPhotoFile, {
+        cacheControl: '3600', upsert: false, contentType: _dmgPhotoFile.type
+      });
+      if (upErr) {
+        toast('Photo upload failed: ' + upErr.message, 'error');
+      } else {
+        var{data:urlData} = sb.storage.from('damage-images').getPublicUrl(imageName);
+        imageUrl = urlData.publicUrl;
+      }
+    }
+
+    var{error} = await sb.from('rc_damage_logs').insert({
+      serial_number: serial,
+      module_code:   document.getElementById('dmg-code').value.trim() || null,
+      job_id:        document.getElementById('dmg-job').value || null,
+      damage_types:  types,
+      severity:      _dmgSeverity,
+      damage_notes:  document.getElementById('dmg-notes').value.trim() || null,
+      image_url:     imageUrl,
+      image_name:    imageName,
+      logged_by:     CU.id
+    });
+
+    if (error) { toast('Error: ' + error.message, 'error'); return; }
+    await loadDamageLogs();
+    cm('m-damage');
+    toast('Damage logged successfully!', 'success');
+    if (document.getElementById('page-damage').classList.contains('active')) renderDamagePage();
+
+  } finally {
+    btn.disabled = false; btn.textContent = '\u2713 Log Damage';
+  }
+}
+
+// -- Delete damage log -------------------------
+async function deleteDamageLog(id) {
+  if (!confirm('Delete this damage log entry?')) return;
+  var entry = allDamageLogs.find(function(d){ return d.id === id; });
+  if (entry && entry.image_name) {
+    await sb.storage.from('damage-images').remove([entry.image_name]);
+  }
+  var{error} = await sb.from('rc_damage_logs').delete().eq('id', id);
+  if (error) { toast('Error: ' + error.message, 'error'); return; }
+  await loadDamageLogs();
+  toast('Entry deleted', 'info');
+  if (document.getElementById('page-damage').classList.contains('active')) renderDamagePage();
+}
+
+// -- Damage detail modal -----------------------
+function openDamageDetail(id) {
+  var d = allDamageLogs.find(function(x){ return x.id === id; });
+  if (!d) return;
+  var job = allJobs.find(function(j){ return j.id === d.job_id; });
+  var loggedBy = allUsers.find(function(u){ return u.id === d.logged_by; });
+  var types = (d.damage_types||[]).map(dmgTypeLabel).join(', ') || 'Not specified';
+
+  document.getElementById('m-dmg-detail-title').textContent = 'Damage: ' + d.serial_number;
+  document.getElementById('m-dmg-detail-body').innerHTML =
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">' +
+      '<div class="dl"><div class="dlb">Serial Number</div><div class="dlv" style="color:var(--c1);font-family:Rajdhani,sans-serif;font-size:18px;font-weight:700">' + escHtml(d.serial_number) + '</div></div>' +
+      '<div class="dl"><div class="dlb">Module Code</div><div class="dlv">' + escHtml(d.module_code || '-') + '</div></div>' +
+      '<div class="dl"><div class="dlb">Severity</div><div class="dlv"><span class="bdg sev-badge-'+d.severity+'">'+d.severity+'</span></div></div>' +
+      '<div class="dl"><div class="dlb">Linked Job</div><div class="dlv">' + (job ? '<span class="chip">'+job.job_number+' - '+job.job_name+'</span>' : '<span style="color:var(--tm)">None</span>') + '</div></div>' +
+      '<div class="dl"><div class="dlb">Damage Types</div><div class="dlv" style="font-size:12px">' + escHtml(types) + '</div></div>' +
+      '<div class="dl"><div class="dlb">Logged By</div><div class="dlv">' + (loggedBy ? loggedBy.name : '?') + '</div></div>' +
+      '<div class="dl full" style="grid-column:1/-1"><div class="dlb">Date &amp; Time</div><div class="dlv">' + new Date(d.logged_at).toLocaleString() + '</div></div>' +
+      (d.damage_notes ? '<div class="dl" style="grid-column:1/-1"><div class="dlb">Notes</div><div class="dlv">' + escHtml(d.damage_notes) + '</div></div>' : '') +
+    '</div>' +
+    (d.image_url ?
+      '<div style="margin-bottom:14px"><div class="dlb" style="margin-bottom:8px">Photo</div>' +
+      '<img src="' + d.image_url + '" style="max-width:100%;border-radius:8px;border:1px solid var(--bdr);cursor:zoom-in" onclick="openLightbox(\'' + d.image_url.replace(/'/g,"\\'") + '\')" alt="damage photo"></div>'
+    : '') +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button class="btn bcyan" onclick="cm(\'m-damage-detail\');downloadSingleDamagePDF(\'' + d.id + '\')">&#8659; Download Report</button>' +
+      (job ? '<button class="btn bout" onclick="cm(\'m-damage-detail\');viewJob(\''+d.job_id+'\')">&#128269; View Job</button>' : '') +
+    '</div>';
+  om('m-damage-detail');
+}
+
+// -- Lightbox ----------------------------------
+function openLightbox(url) {
+  document.getElementById('lightbox-img').src = url;
+  document.getElementById('img-lightbox').classList.add('open');
+}
+
+// -- QR/Barcode Scanner ------------------------
+async function openScanner(targetInputId) {
+  _scannerTargetId = targetInputId;
+  var overlay = document.getElementById('scan-overlay');
+  overlay.classList.add('open');
+  try {
+    _scannerStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width:{ideal:1280}, height:{ideal:720} }
+    });
+    var video = document.getElementById('scan-video');
+    video.srcObject = _scannerStream;
+    // Try to use BarcodeDetector API if available
+    if ('BarcodeDetector' in window) {
+      var detector = new BarcodeDetector({formats:['qr_code','ean_13','ean_8','code_128','code_39','data_matrix','upc_a','upc_e','pdf417','aztec','codabar']});
+      _scannerInterval = setInterval(async function() {
+        try {
+          var barcodes = await detector.detect(video);
+          if (barcodes.length > 0) {
+            var val = barcodes[0].rawValue;
+            closeScanner();
+            var inp = document.getElementById(_scannerTargetId);
+            if (inp) { inp.value = val; inp.focus(); }
+            toast('Scanned: ' + val, 'success');
+          }
+        } catch(e) {}
+      }, 300);
+    } else {
+      // Fallback - just keep camera open and show manual entry hint
+      toast('Auto-scan not supported. Position code and manually enter value.', 'info');
+    }
+  } catch(e) {
+    toast('Camera access denied or unavailable', 'error');
+    closeScanner();
+  }
+}
+
+function closeScanner() {
+  if (_scannerInterval) { clearInterval(_scannerInterval); _scannerInterval = null; }
+  if (_scannerStream) { _scannerStream.getTracks().forEach(function(t){ t.stop(); }); _scannerStream = null; }
+  _torchOn = false;
+  document.getElementById('scan-overlay').classList.remove('open');
+}
+
+async function toggleTorch() {
+  if (!_scannerStream) return;
+  var track = _scannerStream.getVideoTracks()[0];
+  if (!track) return;
+  try {
+    _torchOn = !_torchOn;
+    await track.applyConstraints({ advanced:[{ torch: _torchOn }] });
+    document.getElementById('torch-btn').style.color = _torchOn ? 'var(--cy)' : '';
+  } catch(e) { toast('Torch not supported on this device', 'info'); }
+}
+
+// -- PDF Reports -------------------------------
+function openDamageReport() {
+  var today = new Date().toISOString().slice(0,10);
+  var monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0,10);
+  document.getElementById('dmg-rep-from').value = monthStart;
+  document.getElementById('dmg-rep-to').value = today;
+  var rj = document.getElementById('dmg-rep-job');
+  rj.innerHTML = '<option value="">All Jobs</option>' +
+    allJobs.map(function(j){ return '<option value="'+j.id+'">'+j.job_number+' - '+j.job_name+'</option>'; }).join('');
+  document.getElementById('dmg-rep-sev').value = '';
+  om('m-damage-report');
+}
+
+function downloadDamagePDF() {
+  var from = document.getElementById('dmg-rep-from').value;
+  var to   = document.getElementById('dmg-rep-to').value;
+  var jobF = document.getElementById('dmg-rep-job').value;
+  var sevF = document.getElementById('dmg-rep-sev').value;
+  var items = allDamageLogs;
+  if (from) items = items.filter(function(d){ return d.logged_at >= from; });
+  if (to)   items = items.filter(function(d){ return d.logged_at <= to + 'T23:59:59'; });
+  if (jobF) items = items.filter(function(d){ return d.job_id === jobF; });
+  if (sevF) items = items.filter(function(d){ return d.severity === sevF; });
+  if (!items.length) { toast('No entries for selected filters', 'error'); return; }
+  cm('m-damage-report');
+  generateDamagePDF(items, from || 'All', to || 'All');
+}
+
+function downloadSingleDamagePDF(id) {
+  var d = allDamageLogs.find(function(x){ return x.id === id; });
+  if (!d) return;
+  generateDamagePDF([d], d.logged_at.slice(0,10), d.logged_at.slice(0,10));
+}
+
+function generateDamagePDF(items, fromDate, toDate) {
+  if (typeof window.jspdf === 'undefined') { toast('PDF library loading, try again', 'info'); return; }
+  var doc = new window.jspdf.jsPDF({orientation:'portrait', unit:'mm', format:'a4'});
+  var W=210, M=14, H=297;
+
+  // Colour palette (all ASCII)
+  var BG_PAGE   = [10, 13, 20];
+  var BG_HEADER = [17, 24, 39];
+  var BG_BAND   = [26, 34, 52];
+  var CYAN      = [0, 212, 255];
+  var RED       = [255, 51, 85];
+  var AMBER     = [255, 204, 0];
+  var GREEN     = [0, 255, 136];
+  var PURPLE    = [168, 85, 247];
+  var ORANGE    = [255, 107, 0];
+  var TXT_PRI   = [232, 234, 240];
+  var TXT_MUT   = [120, 133, 153];
+  var BORDER    = [30, 42, 65];
+
+  // Page background
+  doc.setFillColor.apply(doc, BG_PAGE);
+  doc.rect(0, 0, W, H, 'F');
+
+  // Header band
+  doc.setFillColor.apply(doc, BG_HEADER);
+  doc.rect(0, 0, W, 26, 'F');
+  doc.setFillColor.apply(doc, RED);
+  doc.rect(0, 0, 3, 26, 'F');
+
+  // Title
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(14);
+  doc.setTextColor.apply(doc, TXT_PRI);
+  doc.text('EYECOM LED SOLUTIONS - DAMAGE LOG REPORT', M+2, 11);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(8);
+  doc.setTextColor.apply(doc, CYAN);
+  doc.text('Period: ' + fromDate + ' to ' + toDate + '   |   ' + items.length + ' entries', M+2, 18);
+  doc.setTextColor.apply(doc, TXT_MUT);
+  doc.text('Generated: ' + new Date().toLocaleString(), W-M, 18, {align:'right'});
+
+  var y = 34;
+
+  // Summary stat cards
+  var total = items.length;
+  var low    = items.filter(function(d){return d.severity==='Low';}).length;
+  var med    = items.filter(function(d){return d.severity==='Medium';}).length;
+  var high   = items.filter(function(d){return d.severity==='High';}).length;
+  var wo     = items.filter(function(d){return d.severity==='Write-off';}).length;
+  var stats  = [{l:'Total',v:total,c:CYAN},{l:'Low',v:low,c:GREEN},{l:'Medium',v:med,c:AMBER},{l:'High',v:high,c:RED},{l:'Write-off',v:wo,c:PURPLE}];
+  var cw = (W - M*2 - 4) / stats.length;
+  stats.forEach(function(s, i) {
+    var cx = M + i*(cw+1);
+    doc.setFillColor.apply(doc, BG_BAND);
+    doc.roundedRect(cx, y, cw, 16, 1.5, 1.5, 'F');
+    doc.setFillColor.apply(doc, s.c);
+    doc.roundedRect(cx, y, cw, 2, 1, 0, 'F');
+    doc.rect(cx, y+1, cw, 1, 'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor.apply(doc, s.c);
+    doc.text(String(s.v), cx+cw/2, y+9.5, {align:'center'});
+    doc.setFont('helvetica','normal'); doc.setFontSize(5.5); doc.setTextColor.apply(doc, TXT_MUT);
+    doc.text(s.l.toUpperCase(), cx+cw/2, y+14, {align:'center'});
+  });
+  y += 22;
+
+  // Table
+  var rows = items.map(function(d) {
+    var job = allJobs.find(function(j){ return j.id === d.job_id; });
+    var loggedBy = allUsers.find(function(u){ return u.id === d.logged_by; });
+    return [
+      d.serial_number,
+      d.module_code || '-',
+      (d.damage_types||[]).map(dmgTypeLabel).join(', ') || '-',
+      d.severity,
+      job ? job.job_number : '-',
+      loggedBy ? loggedBy.name : '?',
+      new Date(d.logged_at).toLocaleString(),
+      (d.damage_notes||'-').slice(0,60)
+    ];
+  });
+
+  doc.autoTable({
+    startY: y,
+    head: [['Serial #', 'Module Code', 'Damage Types', 'Severity', 'Job', 'Logged By', 'Date/Time', 'Notes']],
+    body: rows,
+    theme: 'grid',
+    headStyles: { fillColor: BG_BAND, textColor: CYAN, fontSize: 7, fontStyle:'bold', lineColor: BORDER, lineWidth: 0.3 },
+    bodyStyles: { fillColor: BG_PAGE, textColor: TXT_PRI, fontSize: 6.5, lineColor: BORDER, lineWidth: 0.2 },
+    alternateRowStyles: { fillColor: BG_BAND },
+    columnStyles: {
+      0: { fontStyle:'bold', textColor: CYAN },
+      3: { halign:'center' },
+      6: { fontSize: 5.5, textColor: TXT_MUT }
+    },
+    didParseCell: function(data) {
+      if (data.column.index === 3 && data.section === 'body') {
+        var sev = data.cell.raw;
+        if (sev==='Low')        data.cell.styles.textColor = GREEN;
+        else if (sev==='Medium') data.cell.styles.textColor = AMBER;
+        else if (sev==='High')   data.cell.styles.textColor = RED;
+        else if (sev==='Write-off') data.cell.styles.textColor = PURPLE;
+      }
+    },
+    margin: { left: M, right: M },
+    tableLineColor: BORDER,
+    tableLineWidth: 0.3
+  });
+
+  // Footer on every page
+  var pageCount = doc.getNumberOfPages();
+  for (var p = 1; p <= pageCount; p++) {
+    doc.setPage(p);
+    doc.setFillColor.apply(doc, BG_HEADER);
+    doc.rect(0, H-8, W, 8, 'F');
+    doc.setFillColor.apply(doc, RED);
+    doc.rect(0, H-8, W, 0.5, 'F');
+    doc.setFont('helvetica','normal'); doc.setFontSize(6); doc.setTextColor.apply(doc, TXT_MUT);
+    doc.text('EYECOM LED SOLUTIONS - DAMAGE LOG | Confidential', M, H-3);
+    doc.text('Page ' + p + ' of ' + pageCount, W-M, H-3, {align:'right'});
+  }
+
+  doc.save('eyecom-damage-log-' + fromDate + '-to-' + toDate + '.pdf');
+  toast('Damage report downloaded!', 'success');
+}
+
+// Hook into setupUI
+var _origSetupUIDmg = setupUI;
+setupUI = async function() {
+  await _origSetupUIDmg.call(this);
+  await loadDamageLogs();
+};
+
+// Hook into showPage
+var _origShowPageDmg = showPage;
+showPage = function(n) {
+  _origShowPageDmg(n);
+  if (n === 'damage') renderDamagePage();
 };
 
 </script>
