@@ -917,7 +917,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
 <div class="scan-overlay" id="scan-overlay">
   <div style="width:min(340px,90vw);text-align:center">
     <div style="display:inline-block;margin-bottom:12px;width:min(320px,88vw)">
-      <div id="scan-qr-region" style="border-radius:10px;overflow:hidden;border:2px solid var(--c1)"></div>
+      <div style="position:relative;display:inline-block">
+      <video id="scan-video" autoplay playsinline muted style="width:min(320px,88vw);border-radius:10px;border:2px solid var(--c1);display:block;background:#000"></video>
+      <canvas id="scan-canvas" style="display:none"></canvas>
+    </div>
     </div>
     <div style="color:var(--c1);font-size:13px;margin-bottom:4px" id="scan-status">Initialising camera...</div>
     <div style="color:var(--tm);font-size:11px;margin-bottom:14px">Supports QR codes, barcodes (Code128, EAN, UPC, Code39)</div>
@@ -968,7 +971,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.7.3/dist/quagga.min.js"></script>
 <script>
 // ==============================================
 //  CONFIG
@@ -2048,7 +2052,7 @@ async function renderStockPage(){
         '</div>'+
         '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
           '<span class="bdg '+stockStatusClass(s.status)+'">'+stockStatusLabel(s.status)+'</span>'+
-          (canEdit?'<button class="btn bcyan bsm" onclick="openDispatchFor(\''+s.id+'\')">&#8599; Dispatch</button>':'')+
+          (canEdit?'<button class="btn bcyan bsm" onclick="openDispatchFor(\''+s.id+'\')">&#8599; Dispatch</button>':'')+''+
           '<button class="btn bout bsm" onclick="openStockDetail(\''+s.id+'\')">&#128269; Detail</button>'+
         '</div>'+
       '</div>'+
@@ -2062,7 +2066,7 @@ async function renderStockPage(){
         '<div class="stock-bar-wrap"><div class="stock-bar" style="width:'+pct+'%;background:'+barColor+'"></div></div>'+
         '<div style="font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--tm);margin-bottom:6px">Recent Dispatches</div>'+
         dispRows+
-        (allDispatches.filter(function(d){return d.stock_id===s.id;}).length>3?'<div style="font-size:12px;color:var(--c1);cursor:pointer;margin-top:6px" onclick="openStockDetail(\''+s.id+'\')">View all dispatches...</div>':'')+ 
+        (allDispatches.filter(function(d){return d.stock_id===s.id;}).length>3?'<div style="font-size:12px;color:var(--c1);cursor:pointer;margin-top:6px" onclick="openStockDetail(\''+s.id+'\')">View all dispatches...</div>':'')+
       '</div>'+
     '</div>';
   }).join('');
@@ -2308,7 +2312,6 @@ var allDamageLogs = [];
 var _dmgSeverity = 'Medium';
 var _dmgPhotoFile = null;
 var _dmgPhotoDataUrl = null;
-var _scannerTargetId = null;
 
 // -- Load damage logs --------------------------
 async function loadDamageLogs() {
@@ -2676,143 +2679,175 @@ function openLightbox(url) {
 // -- QR/Barcode Scanner ------------------------
 
 
-var _html5QrScanner = null;
-var _scannerTargetId = null;
-var _torchOn = false;
+
+
 
 async function openScanner(targetInputId) {
   _scannerTargetId = targetInputId;
 
-  var statusEl = document.getElementById('scan-status');
-  var manualEl = document.getElementById('scan-manual-input');
-  if (statusEl) statusEl.textContent = 'Loading scanner...';
+  var statusEl  = document.getElementById('scan-status');
+  var manualEl  = document.getElementById('scan-manual-input');
+  var overlay   = document.getElementById('scan-overlay');
+  var video     = document.getElementById('scan-video');
+
   if (manualEl) manualEl.value = '';
+  if (statusEl) statusEl.textContent = 'Starting camera...';
+  overlay.classList.add('open');
 
-  // Show overlay immediately so user sees feedback
-  document.getElementById('scan-overlay').classList.add('open');
+  // Stop any previous stream
+  _stopScan();
 
-  // Stop any existing scanner
-  await _stopScanner();
-
-  // Wait for Html5Qrcode to be available (loaded from CDN)
-  var attempts = 0;
-  while (typeof Html5Qrcode === 'undefined' && attempts < 20) {
-    await new Promise(function(r){ setTimeout(r, 200); });
-    attempts++;
-  }
-
-  if (typeof Html5Qrcode === 'undefined') {
-    if (statusEl) statusEl.textContent = 'Scanner unavailable - use manual entry below';
-    toast('Scanner library failed to load. Use the manual entry field.', 'error');
+  // Check libraries loaded
+  var jsqrOk   = typeof jsQR   !== 'undefined';
+  var quaggaOk = typeof Quagga !== 'undefined';
+  if (!jsqrOk && !quaggaOk) {
+    if (statusEl) statusEl.textContent = 'Scanner unavailable - use manual entry';
+    toast('Scanner libraries not loaded. Use manual entry below.', 'error');
     return;
   }
 
-  if (statusEl) statusEl.textContent = 'Starting camera...';
+  // Set up canvas for frame capture
+  _scanCanvas = document.getElementById('scan-canvas');
+  _scanCtx    = _scanCanvas ? _scanCanvas.getContext('2d', { willReadFrequently: true }) : null;
 
   try {
-    // Ensure region div is clean
-    var region = document.getElementById('scan-qr-region');
-    if (region) region.innerHTML = '';
-
-    _html5QrScanner = new Html5Qrcode('scan-qr-region', { verbose: false });
-
-    // Prefer back camera
-    var cameraConstraint = { facingMode: 'environment' };
-
-    await _html5QrScanner.start(
-      cameraConstraint,
-      {
-        fps: 10,
-        qrbox: function(w, h) {
-          var min = Math.min(w, h);
-          return { width: Math.floor(min * 0.75), height: Math.floor(min * 0.75) };
-        },
-        aspectRatio: 1.0,
-        disableFlip: false
+    // Get camera - prefer rear
+    _scanStream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode:  { ideal: 'environment' },
+        width:       { ideal: 1280 },
+        height:      { ideal: 720 }
       },
-      function onScanSuccess(text) {
-        closeScanner();
-        var inp = document.getElementById(_scannerTargetId);
-        if (inp) { inp.value = text; inp.focus(); }
-        toast('Scanned: ' + text, 'success');
-      },
-      function onScanFailure() {
-        // Silent - fires constantly while searching
-        if (statusEl) statusEl.textContent = 'Scanning... point camera at code';
-      }
-    );
+      audio: false
+    });
 
-    if (statusEl) statusEl.textContent = 'Ready - point camera at QR or barcode';
+    video.srcObject = _scanStream;
+    video.setAttribute('playsinline', true);
+
+    await new Promise(function(resolve, reject) {
+      video.onloadedmetadata = resolve;
+      video.onerror = reject;
+      setTimeout(resolve, 3000); // safety timeout
+    });
+
+    await video.play();
+
+    if (statusEl) statusEl.textContent = 'Scanning... point camera at code';
+
+    // Start decode loop
+    _decodeTick(video, statusEl, jsqrOk, quaggaOk);
 
   } catch(err) {
-    console.error('Scanner start error:', err);
-    var msg = (err && err.message) ? err.message.toLowerCase() : '';
-
-    if (msg.includes('permission') || msg.includes('denied') || msg.includes('notallowed')) {
-      if (statusEl) statusEl.textContent = 'Camera permission denied - use manual entry';
-      toast('Camera permission denied. Allow camera access in browser settings.', 'error');
+    console.error('Camera error:', err);
+    _stopScan();
+    overlay.classList.remove('open');
+    var msg = err.name || '';
+    if (msg === 'NotAllowedError' || msg === 'PermissionDeniedError') {
+      toast('Camera permission denied. Allow camera access in your browser settings then try again.', 'error');
+    } else if (msg === 'NotFoundError' || msg === 'DevicesNotFoundError') {
+      toast('No camera found on this device.', 'error');
     } else {
-      // Try front camera as fallback
-      try {
-        var region2 = document.getElementById('scan-qr-region');
-        if (region2) region2.innerHTML = '';
-        _html5QrScanner = new Html5Qrcode('scan-qr-region', { verbose: false });
-        await _html5QrScanner.start(
-          { facingMode: 'user' },
-          { fps: 10, qrbox: 200 },
-          function(text) {
-            closeScanner();
-            var inp = document.getElementById(_scannerTargetId);
-            if (inp) { inp.value = text; inp.focus(); }
-            toast('Scanned: ' + text, 'success');
-          },
-          function() {}
-        );
-        if (statusEl) statusEl.textContent = 'Ready - point camera at QR or barcode';
-      } catch(err2) {
-        _html5QrScanner = null;
-        if (statusEl) statusEl.textContent = 'Camera unavailable - use manual entry below';
-        toast('Camera unavailable. Use the manual entry field instead.', 'error');
-      }
+      toast('Camera error: ' + (err.message || msg) + '. Use manual entry.', 'error');
     }
   }
 }
 
-async function _stopScanner() {
-  if (_html5QrScanner) {
-    try {
-      if (_html5QrScanner.isScanning) {
-        await _html5QrScanner.stop();
-      }
-      _html5QrScanner.clear();
-    } catch(e) {}
-    _html5QrScanner = null;
-  }
-  _torchOn = false;
-}
+function _decodeTick(video, statusEl, jsqrOk, quaggaOk) {
+  if (!_scanStream) return; // stopped
 
-function closeScanner() {
-  _stopScanner().then(function() {
-    document.getElementById('scan-overlay').classList.remove('open');
-    var region = document.getElementById('scan-qr-region');
-    if (region) region.innerHTML = '';
-    var statusEl = document.getElementById('scan-status');
-    if (statusEl) statusEl.textContent = 'Loading scanner...';
-    var manualEl = document.getElementById('scan-manual-input');
-    if (manualEl) manualEl.value = '';
+  var now = Date.now();
+  // Throttle to ~10 fps for battery
+  if (now - _lastScanTime >= 100) {
+    _lastScanTime = now;
+
+    try {
+      if (video.readyState === video.HAVE_ENOUGH_DATA && _scanCanvas && _scanCtx) {
+        var w = video.videoWidth;
+        var h = video.videoHeight;
+        if (w > 0 && h > 0) {
+          _scanCanvas.width  = w;
+          _scanCanvas.height = h;
+          _scanCtx.drawImage(video, 0, 0, w, h);
+
+          var imageData = _scanCtx.getImageData(0, 0, w, h);
+
+          // -- QR codes via jsQR ----------------------------------------
+          if (jsqrOk) {
+            var qr = jsQR(imageData.data, w, h, { inversionAttempts: 'dontInvert' });
+            if (qr && qr.data) {
+              _onScanResult(qr.data);
+              return;
+            }
+          }
+
+          // -- 1D barcodes via Quagga2 ----------------------------------
+          if (quaggaOk) {
+            Quagga.decodeSingle({
+              decoder: {
+                readers: ['code_128_reader','ean_reader','ean_8_reader',
+                          'code_39_reader','code_39_vin_reader','codabar_reader',
+                          'upc_reader','upc_e_reader','i2of5_reader']
+              },
+              locate: true,
+              src: _canvasToDataUrl()
+            }, function(result) {
+              if (result && result.codeResult && result.codeResult.code) {
+                _onScanResult(result.codeResult.code);
+              }
+            });
+          }
+        }
+      }
+    } catch(e) {
+      // Silent - decode errors are expected when no code is visible
+    }
+  }
+
+  _scanRAF = requestAnimationFrame(function() {
+    _decodeTick(video, statusEl, jsqrOk, quaggaOk);
   });
 }
 
-async function toggleTorch() {
-  if (!_html5QrScanner || !_html5QrScanner.isScanning) {
-    toast('Start the scanner first', 'info');
-    return;
+function _canvasToDataUrl() {
+  try { return _scanCanvas ? _scanCanvas.toDataURL('image/png') : null; } catch(e) { return null; }
+}
+
+function _onScanResult(text) {
+  if (!text || !text.trim()) return;
+  _stopScan();
+  document.getElementById('scan-overlay').classList.remove('open');
+  var inp = document.getElementById(_scannerTargetId);
+  if (inp) { inp.value = text.trim(); inp.focus(); }
+  toast('Scanned: ' + text.trim(), 'success');
+}
+
+function _stopScan() {
+  if (_scanRAF) { cancelAnimationFrame(_scanRAF); _scanRAF = null; }
+  if (_scanStream) {
+    _scanStream.getTracks().forEach(function(t) { t.stop(); });
+    _scanStream = null;
   }
+  _torchOn = false;
+  var video = document.getElementById('scan-video');
+  if (video) { video.srcObject = null; }
+}
+
+function closeScanner() {
+  _stopScan();
+  document.getElementById('scan-overlay').classList.remove('open');
+  var statusEl = document.getElementById('scan-status');
+  if (statusEl) statusEl.textContent = 'Starting camera...';
+  var manualEl = document.getElementById('scan-manual-input');
+  if (manualEl) manualEl.value = '';
+}
+
+async function toggleTorch() {
+  if (!_scanStream) { toast('Start the scanner first', 'info'); return; }
+  var track = _scanStream.getVideoTracks()[0];
+  if (!track) return;
   try {
     _torchOn = !_torchOn;
-    await _html5QrScanner.applyVideoConstraints({
-      advanced: [{ torch: _torchOn }]
-    });
+    await track.applyConstraints({ advanced: [{ torch: _torchOn }] });
     var tb = document.getElementById('torch-btn');
     if (tb) tb.style.color = _torchOn ? 'var(--cy)' : '';
   } catch(e) {
@@ -2820,6 +2855,15 @@ async function toggleTorch() {
     _torchOn = false;
   }
 }
+
+
+
+
+
+
+
+
+
 
 function scanManualEntry() {
   var val = (document.getElementById('scan-manual-input').value || '').trim();
@@ -2879,113 +2923,305 @@ function downloadSingleDamagePDF(id) {
 
 function generateDamagePDF(items, fromDate, toDate) {
   if (typeof window.jspdf === 'undefined') { toast('PDF library loading, try again', 'info'); return; }
+
+  // -- Determine if this is a single-job report ---------------------------
+  var jobIds = {};
+  items.forEach(function(d){ if(d.job_id) jobIds[d.job_id] = true; });
+  var isSingleJob = Object.keys(jobIds).length === 1 && Object.keys(jobIds)[0];
+  var focusJob    = isSingleJob ? allJobs.find(function(j){ return j.id === isSingleJob; }) : null;
+  var focusStock  = isSingleJob ? allStock.filter(function(s){ return s.job_id === isSingleJob; }) : [];
+
+  // -- Job module count logic ----------------------------------------------
+  // Source of truth for "booked in": rc_jobs.qty (set when job was created)
+  // Also cross-check rc_stock.qty_received if available
+  var jobQtyBooked  = focusJob ? (focusJob.qty || 0) : 0;
+  var stockReceived = focusStock.reduce(function(s,r){ return s + (r.qty_received||0); }, 0);
+  // Use whichever is higher as the authoritative booked count
+  var totalBooked   = Math.max(jobQtyBooked, stockReceived);
+  var totalDamaged  = items.length;
+  var totalUndamaged = Math.max(0, totalBooked - totalDamaged);
+  var damageRate     = totalBooked > 0 ? ((totalDamaged / totalBooked) * 100).toFixed(1) : '0.0';
+
   var doc = new window.jspdf.jsPDF({orientation:'portrait', unit:'mm', format:'a4'});
   var W=210, M=14, H=297;
 
-  // Colour palette (all ASCII)
-  var BG_PAGE   = [10, 13, 20];
-  var BG_HEADER = [17, 24, 39];
-  var BG_BAND   = [26, 34, 52];
-  var CYAN      = [0, 212, 255];
-  var RED       = [255, 51, 85];
-  var AMBER     = [255, 204, 0];
-  var GREEN     = [0, 255, 136];
-  var PURPLE    = [168, 85, 247];
-  var ORANGE    = [255, 107, 0];
-  var TXT_PRI   = [232, 234, 240];
-  var TXT_MUT   = [120, 133, 153];
-  var BORDER    = [30, 42, 65];
+  // Colours
+  var BG_PAGE  = [10, 13, 20];
+  var BG_HEADER= [17, 24, 39];
+  var BG_BAND  = [26, 34, 52];
+  var CYAN     = [0, 212, 255];
+  var RED      = [255, 51, 85];
+  var AMBER    = [255, 204, 0];
+  var GREEN    = [0, 255, 136];
+  var PURPLE   = [168, 85, 247];
+  var ORANGE   = [255, 107, 0];
+  var TXT_PRI  = [232, 234, 240];
+  var TXT_MUT  = [120, 133, 153];
+  var BORDER   = [30, 42, 65];
 
-  // Page background
+  // -- PAGE 1 BACKGROUND --------------------------------------------------
   doc.setFillColor.apply(doc, BG_PAGE);
   doc.rect(0, 0, W, H, 'F');
 
-  // Header band
+  // -- HEADER BAND --------------------------------------------------------
   doc.setFillColor.apply(doc, BG_HEADER);
-  doc.rect(0, 0, W, 26, 'F');
+  doc.rect(0, 0, W, 28, 'F');
   doc.setFillColor.apply(doc, RED);
-  doc.rect(0, 0, 3, 26, 'F');
+  doc.rect(0, 0, 3, 28, 'F');
+  doc.setFillColor.apply(doc, RED);
+  doc.circle(M+5, 14, 4.5, 'F');
+  doc.setFillColor.apply(doc, BG_PAGE);
+  doc.circle(M+5, 14, 2, 'F');
 
-  // Title
   doc.setFont('helvetica','bold');
-  doc.setFontSize(14);
+  doc.setFontSize(13);
   doc.setTextColor.apply(doc, TXT_PRI);
-  doc.text('EYECOM LED SOLUTIONS - DAMAGE LOG REPORT', M+2, 11);
+  doc.text('EYECOM LED SOLUTIONS - DAMAGE LOG REPORT', M+14, 11);
   doc.setFont('helvetica','normal');
   doc.setFontSize(8);
-  doc.setTextColor.apply(doc, CYAN);
-  doc.text('Period: ' + fromDate + ' to ' + toDate + '   |   ' + items.length + ' entries', M+2, 18);
+  doc.setTextColor.apply(doc, RED);
+  doc.text(isSingleJob && focusJob
+    ? 'Job Reference: ' + focusJob.job_number + ' - ' + focusJob.job_name
+    : 'All Jobs - Period: ' + fromDate + ' to ' + toDate,
+    M+14, 17.5);
+  doc.setFontSize(7);
   doc.setTextColor.apply(doc, TXT_MUT);
-  doc.text('Generated: ' + new Date().toLocaleString(), W-M, 18, {align:'right'});
+  doc.text('Generated: ' + new Date().toLocaleString() + '   |   ' + items.length + ' damage entries', W-M, 23, {align:'right'});
 
   var y = 34;
 
-  // Summary stat cards
-  var total = items.length;
-  var low    = items.filter(function(d){return d.severity==='Low';}).length;
-  var med    = items.filter(function(d){return d.severity==='Medium';}).length;
-  var high   = items.filter(function(d){return d.severity==='High';}).length;
-  var wo     = items.filter(function(d){return d.severity==='Write-off';}).length;
-  var stats  = [{l:'Total',v:total,c:CYAN},{l:'Low',v:low,c:GREEN},{l:'Medium',v:med,c:AMBER},{l:'High',v:high,c:RED},{l:'Write-off',v:wo,c:PURPLE}];
-  var cw = (W - M*2 - 4) / stats.length;
-  stats.forEach(function(s, i) {
-    var cx = M + i*(cw+1);
+  // ========================================================================
+  // JOB INFO SECTION (only when single job is referenced)
+  // ========================================================================
+  if (focusJob) {
+    // Section header
     doc.setFillColor.apply(doc, BG_BAND);
-    doc.roundedRect(cx, y, cw, 16, 1.5, 1.5, 'F');
-    doc.setFillColor.apply(doc, s.c);
-    doc.roundedRect(cx, y, cw, 2, 1, 0, 'F');
-    doc.rect(cx, y+1, cw, 1, 'F');
-    doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor.apply(doc, s.c);
-    doc.text(String(s.v), cx+cw/2, y+9.5, {align:'center'});
-    doc.setFont('helvetica','normal'); doc.setFontSize(5.5); doc.setTextColor.apply(doc, TXT_MUT);
-    doc.text(s.l.toUpperCase(), cx+cw/2, y+14, {align:'center'});
-  });
-  y += 22;
+    doc.rect(M, y, W-M*2, 8, 'F');
+    doc.setFillColor.apply(doc, RED);
+    doc.rect(M, y, 2.5, 8, 'F');
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor.apply(doc, TXT_PRI);
+    doc.text('JOB INFORMATION', M+6, y+5.3);
+    y += 10;
 
-  // Table
-  var rows = items.map(function(d) {
-    var job = allJobs.find(function(j){ return j.id === d.job_id; });
+    // Two-column job detail grid
+    var assignedUser = allUsers.find(function(u){ return u.id === focusJob.assigned_to; });
+    var jobDetails = [
+      ['Job Number',   focusJob.job_number || '-'],
+      ['Job Name',     focusJob.job_name   || '-'],
+      ['Client',       focusJob.client     || '-'],
+      ['Batch',        focusJob.batch      || '-'],
+      ['Pitch',        focusJob.pitch      || '-'],
+      ['Status',       focusJob.status     || '-'],
+      ['Priority',     focusJob.priority   || '-'],
+      ['Assigned To',  assignedUser ? assignedUser.name : 'Unassigned'],
+    ];
+
+    var colW = (W - M*2 - 4) / 2;
+    var rowH = 7;
+    jobDetails.forEach(function(pair, i) {
+      var col = i % 2;
+      var row = Math.floor(i / 2);
+      var cx  = M + col * (colW + 4);
+      var cy  = y + row * rowH;
+      doc.setFillColor.apply(doc, col === 0 ? BG_BAND : BG_PAGE);
+      doc.rect(cx, cy, colW, rowH, 'F');
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor.apply(doc, TXT_MUT);
+      doc.text(pair[0].toUpperCase(), cx+3, cy+4.2);
+      doc.setFont('helvetica','bold');
+      doc.setTextColor.apply(doc, TXT_PRI);
+      doc.text(String(pair[1]), cx+colW*0.4, cy+4.2);
+    });
+    y += Math.ceil(jobDetails.length / 2) * rowH + 4;
+
+    // Notes if present
+    if (focusJob.notes && focusJob.notes.trim()) {
+      doc.setFillColor.apply(doc, BG_BAND);
+      doc.rect(M, y, W-M*2, 7, 'F');
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor.apply(doc, TXT_MUT);
+      doc.text('JOB NOTES', M+3, y+4.5);
+      doc.setTextColor.apply(doc, TXT_PRI);
+      doc.text(focusJob.notes.slice(0,200), M+30, y+4.5);
+      y += 9;
+    }
+
+    y += 4;
+
+    // ======================================================================
+    // MODULE HEALTH SUMMARY CARDS
+    // ======================================================================
+    doc.setFillColor.apply(doc, BG_BAND);
+    doc.rect(M, y, W-M*2, 8, 'F');
+    doc.setFillColor.apply(doc, GREEN);
+    doc.rect(M, y, 2.5, 8, 'F');
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor.apply(doc, TXT_PRI);
+    doc.text('MODULE HEALTH SUMMARY', M+6, y+5.3);
+    y += 10;
+
+    var healthCards = [
+      { l:'Booked In',   v: totalBooked,     c: CYAN   },
+      { l:'Undamaged',   v: totalUndamaged,  c: GREEN  },
+      { l:'Damaged',     v: totalDamaged,    c: RED    },
+      { l:'Damage Rate', v: damageRate + '%',c: AMBER, small: true },
+      { l:'Write-offs',  v: items.filter(function(d){return d.severity==='Write-off';}).length, c: PURPLE }
+    ];
+    var cw = (W - M*2 - 4) / healthCards.length;
+    var ch = 18;
+    healthCards.forEach(function(s, i) {
+      var cx = M + i * (cw + 1);
+      doc.setFillColor.apply(doc, BG_BAND);
+      doc.roundedRect(cx, y, cw, ch, 1.5, 1.5, 'F');
+      doc.setFillColor.apply(doc, s.c);
+      doc.roundedRect(cx, y, cw, 2.5, 1, 0, 'F');
+      doc.rect(cx, y+1.5, cw, 1, 'F');
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(s.small ? 9 : 13);
+      doc.setTextColor.apply(doc, s.c);
+      doc.text(String(s.v), cx+cw/2, y+11, {align:'center'});
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(5);
+      doc.setTextColor.apply(doc, TXT_MUT);
+      doc.text(s.l.toUpperCase(), cx+cw/2, y+16, {align:'center'});
+    });
+    y += ch + 4;
+
+    // Stock breakdown if available
+    if (focusStock.length > 0) {
+      y += 2;
+      doc.setFillColor.apply(doc, BG_BAND);
+      doc.rect(M, y, W-M*2, 8, 'F');
+      doc.setFillColor.apply(doc, CYAN);
+      doc.rect(M, y, 2.5, 8, 'F');
+      doc.setFont('helvetica','bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor.apply(doc, TXT_PRI);
+      doc.text('STOCK RECORD', M+6, y+5.3);
+      y += 10;
+
+      var stockRows = focusStock.map(function(s) {
+        return [s.batch || '-', s.pitch || '-',
+          String(s.qty_received||0), String(s.qty_in_stock||0),
+          String(s.qty_dispatched||0), s.status||'-'];
+      });
+
+      doc.autoTable({
+        startY: y,
+        head: [['Batch','Pitch','Received','In Stock','Dispatched','Status']],
+        body: stockRows,
+        theme: 'grid',
+        headStyles: {fillColor:BG_BAND,textColor:CYAN,fontSize:6.5,fontStyle:'bold',lineColor:BORDER,lineWidth:0.3},
+        bodyStyles: {fillColor:BG_PAGE,textColor:TXT_PRI,fontSize:7,lineColor:BORDER,lineWidth:0.2},
+        alternateRowStyles: {fillColor:BG_BAND},
+        columnStyles: {
+          2:{halign:'center',textColor:CYAN},
+          3:{halign:'center',textColor:GREEN},
+          4:{halign:'center',textColor:AMBER},
+          5:{halign:'center'}
+        },
+        margin: {left:M, right:M},
+        tableLineColor: BORDER, tableLineWidth: 0.3
+      });
+      y = doc.lastAutoTable.finalY + 8;
+    } else {
+      y += 4;
+    }
+  } else {
+    // Multi-job: simple stat cards
+    var sevCounts = {Low:0,Medium:0,High:0,'Write-off':0};
+    items.forEach(function(d){ if(sevCounts[d.severity]!==undefined) sevCounts[d.severity]++; });
+    var scards = [
+      {l:'Total',v:items.length,c:RED},
+      {l:'Low',v:sevCounts.Low,c:GREEN},
+      {l:'Medium',v:sevCounts.Medium,c:AMBER},
+      {l:'High',v:sevCounts.High,c:RED},
+      {l:'Write-off',v:sevCounts['Write-off'],c:PURPLE}
+    ];
+    var cw2 = (W-M*2-4)/scards.length;
+    scards.forEach(function(s,i){
+      var cx=M+i*(cw2+1);
+      doc.setFillColor.apply(doc,BG_BAND);
+      doc.roundedRect(cx,y,cw2,16,1.5,1.5,'F');
+      doc.setFillColor.apply(doc,s.c);
+      doc.roundedRect(cx,y,cw2,2,1,0,'F');
+      doc.rect(cx,y+1,cw2,1,'F');
+      doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor.apply(doc,s.c);
+      doc.text(String(s.v),cx+cw2/2,y+9.5,{align:'center'});
+      doc.setFont('helvetica','normal');doc.setFontSize(5.5);doc.setTextColor.apply(doc,TXT_MUT);
+      doc.text(s.l.toUpperCase(),cx+cw2/2,y+14,{align:'center'});
+    });
+    y += 20;
+  }
+
+  // ========================================================================
+  // DAMAGE LOG TABLE
+  // ========================================================================
+  doc.setFillColor.apply(doc, BG_BAND);
+  doc.rect(M, y, W-M*2, 8, 'F');
+  doc.setFillColor.apply(doc, RED);
+  doc.rect(M, y, 2.5, 8, 'F');
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor.apply(doc, TXT_PRI);
+  doc.text('DAMAGE LOG ENTRIES (' + items.length + ')', M+6, y+5.3);
+  y += 10;
+
+  var tableRows = items.map(function(d) {
+    var job      = allJobs.find(function(j){ return j.id === d.job_id; });
     var loggedBy = allUsers.find(function(u){ return u.id === d.logged_by; });
     return [
       d.serial_number,
       d.module_code || '-',
+      isSingleJob ? null : (job ? job.job_number : '-'),
       (d.damage_types||[]).map(dmgTypeLabel).join(', ') || '-',
       d.severity,
-      job ? job.job_number : '-',
       loggedBy ? loggedBy.name : '?',
-      new Date(d.logged_at).toLocaleString(),
-      (d.damage_notes||'-').slice(0,60)
-    ];
+      new Date(d.logged_at).toLocaleDateString(),
+      (d.damage_notes||'-').slice(0,50)
+    ].filter(function(v){ return v !== null; });
   });
+
+  var heads = ['Serial #','Module Code'];
+  if (!isSingleJob) heads.push('Job');
+  heads = heads.concat(['Damage Types','Severity','Logged By','Date','Notes']);
+
+  var colStyles = {
+    0:{fontStyle:'bold',textColor:CYAN},
+    3:{fontSize:5.5},
+    5:{textColor:TXT_MUT}
+  };
+  var sevCol = isSingleJob ? 3 : 4;
+  colStyles[sevCol] = {halign:'center'};
 
   doc.autoTable({
     startY: y,
-    head: [['Serial #', 'Module Code', 'Damage Types', 'Severity', 'Job', 'Logged By', 'Date/Time', 'Notes']],
-    body: rows,
+    head: [heads],
+    body: tableRows,
     theme: 'grid',
-    headStyles: { fillColor: BG_BAND, textColor: CYAN, fontSize: 7, fontStyle:'bold', lineColor: BORDER, lineWidth: 0.3 },
-    bodyStyles: { fillColor: BG_PAGE, textColor: TXT_PRI, fontSize: 6.5, lineColor: BORDER, lineWidth: 0.2 },
-    alternateRowStyles: { fillColor: BG_BAND },
-    columnStyles: {
-      0: { fontStyle:'bold', textColor: CYAN },
-      3: { halign:'center' },
-      6: { fontSize: 5.5, textColor: TXT_MUT }
-    },
+    headStyles: {fillColor:BG_BAND,textColor:RED,fontSize:6.5,fontStyle:'bold',lineColor:BORDER,lineWidth:0.3},
+    bodyStyles: {fillColor:BG_PAGE,textColor:TXT_PRI,fontSize:6.5,lineColor:BORDER,lineWidth:0.2},
+    alternateRowStyles: {fillColor:BG_BAND},
+    columnStyles: colStyles,
     didParseCell: function(data) {
-      if (data.column.index === 3 && data.section === 'body') {
+      if (data.section === 'body' && data.column.index === sevCol) {
         var sev = data.cell.raw;
-        if (sev==='Low')        data.cell.styles.textColor = GREEN;
+        if (sev==='Low')         data.cell.styles.textColor = GREEN;
         else if (sev==='Medium') data.cell.styles.textColor = AMBER;
         else if (sev==='High')   data.cell.styles.textColor = RED;
         else if (sev==='Write-off') data.cell.styles.textColor = PURPLE;
       }
     },
-    margin: { left: M, right: M },
-    tableLineColor: BORDER,
-    tableLineWidth: 0.3
+    margin: {left:M, right:M},
+    tableLineColor: BORDER, tableLineWidth: 0.3
   });
 
-  // Footer on every page
+  // -- FOOTER ON EVERY PAGE ------------------------------------------------
   var pageCount = doc.getNumberOfPages();
   for (var p = 1; p <= pageCount; p++) {
     doc.setPage(p);
@@ -2993,12 +3229,14 @@ function generateDamagePDF(items, fromDate, toDate) {
     doc.rect(0, H-8, W, 8, 'F');
     doc.setFillColor.apply(doc, RED);
     doc.rect(0, H-8, W, 0.5, 'F');
-    doc.setFont('helvetica','normal'); doc.setFontSize(6); doc.setTextColor.apply(doc, TXT_MUT);
-    doc.text('EYECOM LED SOLUTIONS - DAMAGE LOG | Confidential', M, H-3);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(6);
+    doc.setTextColor.apply(doc, TXT_MUT);
+    doc.text('EYECOM LED SOLUTIONS - DAMAGE LOG REPORT | Confidential', M, H-3);
     doc.text('Page ' + p + ' of ' + pageCount, W-M, H-3, {align:'right'});
   }
 
-  doc.save('eyecom-damage-log-' + fromDate + '-to-' + toDate + '.pdf');
+  doc.save('eyecom-damage-' + (focusJob ? focusJob.job_number + '-' : '') + fromDate + '-to-' + toDate + '.pdf');
   toast('Damage report downloaded!', 'success');
 }
 
