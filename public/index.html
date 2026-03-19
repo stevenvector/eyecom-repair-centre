@@ -914,8 +914,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
 <!-- Scanner Overlay -->
 <div class="scan-overlay" id="scan-overlay">
   <div style="width:min(340px,90vw);text-align:center">
-    <div class="scan-target" style="display:inline-block;margin-bottom:12px">
-      <video id="scan-video" class="scan-video" autoplay playsinline muted style="width:min(320px,88vw);border-radius:10px;border:2px solid var(--c1);display:block"></video>
+    <div style="display:inline-block;margin-bottom:12px;width:min(320px,88vw)">
+      <div id="scan-qr-region" style="border-radius:10px;overflow:hidden;border:2px solid var(--c1)"></div>
     </div>
     <div style="color:var(--c1);font-size:13px;margin-bottom:4px" id="scan-status">Initialising camera...</div>
     <div style="color:var(--tm);font-size:11px;margin-bottom:14px">Supports QR codes, barcodes (Code128, EAN, UPC, Code39)</div>
@@ -966,19 +966,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/index.min.js"></script>
-<script>
-// ZXing namespace shim - normalise export name
-window.addEventListener('load', function() {
-  if (typeof ZXingBrowser === 'undefined') {
-    if (typeof window['@zxing/browser'] !== 'undefined') {
-      window.ZXingBrowser = window['@zxing/browser'];
-    } else if (typeof ZXing !== 'undefined') {
-      window.ZXingBrowser = ZXing;
-    }
-  }
-});
-</script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
 // ==============================================
 //  CONFIG
@@ -2318,10 +2306,7 @@ var allDamageLogs = [];
 var _dmgSeverity = 'Medium';
 var _dmgPhotoFile = null;
 var _dmgPhotoDataUrl = null;
-var _scannerStream = null;
 var _scannerTargetId = null;
-var _scannerInterval = null;
-var _torchOn = false;
 
 // -- Load damage logs --------------------------
 async function loadDamageLogs() {
@@ -2591,128 +2576,174 @@ function openLightbox(url) {
 }
 
 // -- QR/Barcode Scanner ------------------------
-var _zxingReader = null;
+
+
+var _html5QrScanner = null;
+var _scannerTargetId = null;
+var _torchOn = false;
 
 async function openScanner(targetInputId) {
   _scannerTargetId = targetInputId;
-  var overlay = document.getElementById('scan-overlay');
-  overlay.classList.add('open');
-  var video = document.getElementById('scan-video');
 
-  // Stop any existing reader
-  closeScanner(false);
+  var statusEl = document.getElementById('scan-status');
+  var manualEl = document.getElementById('scan-manual-input');
+  if (statusEl) statusEl.textContent = 'Loading scanner...';
+  if (manualEl) manualEl.value = '';
+
+  // Show overlay immediately so user sees feedback
+  document.getElementById('scan-overlay').classList.add('open');
+
+  // Stop any existing scanner
+  await _stopScanner();
+
+  // Wait for Html5Qrcode to be available (loaded from CDN)
+  var attempts = 0;
+  while (typeof Html5Qrcode === 'undefined' && attempts < 20) {
+    await new Promise(function(r){ setTimeout(r, 200); });
+    attempts++;
+  }
+
+  if (typeof Html5Qrcode === 'undefined') {
+    if (statusEl) statusEl.textContent = 'Scanner unavailable - use manual entry below';
+    toast('Scanner library failed to load. Use the manual entry field.', 'error');
+    return;
+  }
+
+  if (statusEl) statusEl.textContent = 'Starting camera...';
 
   try {
-    // Check if ZXing loaded
-    if (typeof ZXingBrowser === 'undefined') {
-      toast('Scanner library not loaded. Please refresh and try again.', 'error');
-      closeScanner(false);
-      return;
-    }
+    // Ensure region div is clean
+    var region = document.getElementById('scan-qr-region');
+    if (region) region.innerHTML = '';
 
-    // Use ZXingBrowser which works on ALL browsers including iOS Safari
-    var hints = new Map();
-    var formats = [
-      ZXingBrowser.BarcodeFormat.QR_CODE,
-      ZXingBrowser.BarcodeFormat.CODE_128,
-      ZXingBrowser.BarcodeFormat.CODE_39,
-      ZXingBrowser.BarcodeFormat.EAN_13,
-      ZXingBrowser.BarcodeFormat.EAN_8,
-      ZXingBrowser.BarcodeFormat.UPC_A,
-      ZXingBrowser.BarcodeFormat.UPC_E,
-      ZXingBrowser.BarcodeFormat.DATA_MATRIX,
-      ZXingBrowser.BarcodeFormat.PDF_417,
-      ZXingBrowser.BarcodeFormat.AZTEC,
-      ZXingBrowser.BarcodeFormat.ITF,
-      ZXingBrowser.BarcodeFormat.CODABAR
-    ];
-    hints.set(ZXingBrowser.DecodeHintType.POSSIBLE_FORMATS, formats);
-    hints.set(ZXingBrowser.DecodeHintType.TRY_HARDER, true);
+    _html5QrScanner = new Html5Qrcode('scan-qr-region', { verbose: false });
 
-    _zxingReader = new ZXingBrowser.BrowserMultiFormatReader(hints, {
-      delayBetweenScanAttempts: 150,
-      delayBetweenScanSuccess: 500
-    });
+    // Prefer back camera
+    var cameraConstraint = { facingMode: 'environment' };
 
-    // Get available video devices - prefer back camera
-    var devices = await ZXingBrowser.BrowserCodeReader.listVideoInputDevices();
-    var deviceId = undefined;
-    if (devices && devices.length > 0) {
-      // Prefer back/environment facing camera
-      var backCam = devices.find(function(d) {
-        return d.label.toLowerCase().includes('back') ||
-               d.label.toLowerCase().includes('rear') ||
-               d.label.toLowerCase().includes('environment');
-      });
-      deviceId = backCam ? backCam.deviceId : devices[devices.length - 1].deviceId;
-    }
-
-    document.getElementById('scan-status').textContent = 'Camera starting...';
-
-    await _zxingReader.decodeFromVideoDevice(deviceId, video, function(result, err, controls) {
-      if (result) {
-        var val = result.getText();
-        closeScanner(false);
+    await _html5QrScanner.start(
+      cameraConstraint,
+      {
+        fps: 10,
+        qrbox: function(w, h) {
+          var min = Math.min(w, h);
+          return { width: Math.floor(min * 0.75), height: Math.floor(min * 0.75) };
+        },
+        aspectRatio: 1.0,
+        disableFlip: false
+      },
+      function onScanSuccess(text) {
+        closeScanner();
         var inp = document.getElementById(_scannerTargetId);
-        if (inp) { inp.value = val; inp.focus(); }
-        toast('Scanned: ' + val, 'success');
+        if (inp) { inp.value = text; inp.focus(); }
+        toast('Scanned: ' + text, 'success');
+      },
+      function onScanFailure() {
+        // Silent - fires constantly while searching
+        if (statusEl) statusEl.textContent = 'Scanning... point camera at code';
       }
-      if (err && !(err instanceof ZXingBrowser.NotFoundException)) {
-        console.warn('Scanner error:', err);
-      }
-      // Update status
-      var statusEl = document.getElementById('scan-status');
-      if (statusEl) statusEl.textContent = 'Scanning... point camera at code';
-    });
+    );
 
-  } catch(e) {
-    console.error('Scanner failed:', e);
-    if (e.name === 'NotAllowedError') {
-      toast('Camera permission denied. Please allow camera access and try again.', 'error');
-    } else if (e.name === 'NotFoundError') {
-      toast('No camera found on this device.', 'error');
+    if (statusEl) statusEl.textContent = 'Ready - point camera at QR or barcode';
+
+  } catch(err) {
+    console.error('Scanner start error:', err);
+    var msg = (err && err.message) ? err.message.toLowerCase() : '';
+
+    if (msg.includes('permission') || msg.includes('denied') || msg.includes('notallowed')) {
+      if (statusEl) statusEl.textContent = 'Camera permission denied - use manual entry';
+      toast('Camera permission denied. Allow camera access in browser settings.', 'error');
     } else {
-      toast('Scanner error: ' + e.message, 'error');
+      // Try front camera as fallback
+      try {
+        var region2 = document.getElementById('scan-qr-region');
+        if (region2) region2.innerHTML = '';
+        _html5QrScanner = new Html5Qrcode('scan-qr-region', { verbose: false });
+        await _html5QrScanner.start(
+          { facingMode: 'user' },
+          { fps: 10, qrbox: 200 },
+          function(text) {
+            closeScanner();
+            var inp = document.getElementById(_scannerTargetId);
+            if (inp) { inp.value = text; inp.focus(); }
+            toast('Scanned: ' + text, 'success');
+          },
+          function() {}
+        );
+        if (statusEl) statusEl.textContent = 'Ready - point camera at QR or barcode';
+      } catch(err2) {
+        _html5QrScanner = null;
+        if (statusEl) statusEl.textContent = 'Camera unavailable - use manual entry below';
+        toast('Camera unavailable. Use the manual entry field instead.', 'error');
+      }
     }
-    closeScanner(false);
   }
 }
 
-function closeScanner(showOverlay) {
-  if (_zxingReader) {
-    try { _zxingReader.reset(); } catch(e) {}
-    _zxingReader = null;
+async function _stopScanner() {
+  if (_html5QrScanner) {
+    try {
+      if (_html5QrScanner.isScanning) {
+        await _html5QrScanner.stop();
+      }
+      _html5QrScanner.clear();
+    } catch(e) {}
+    _html5QrScanner = null;
   }
-  if (_scannerStream) {
-    _scannerStream.getTracks().forEach(function(t){ t.stop(); });
-    _scannerStream = null;
-  }
-  if (_scannerInterval) { clearInterval(_scannerInterval); _scannerInterval = null; }
   _torchOn = false;
-  var tb = document.getElementById('torch-btn');
-  if (tb) tb.style.color = '';
-  if (showOverlay !== false) {
+}
+
+function closeScanner() {
+  _stopScanner().then(function() {
     document.getElementById('scan-overlay').classList.remove('open');
-  } else {
-    document.getElementById('scan-overlay').classList.remove('open');
-  }
+    var region = document.getElementById('scan-qr-region');
+    if (region) region.innerHTML = '';
+    var statusEl = document.getElementById('scan-status');
+    if (statusEl) statusEl.textContent = 'Loading scanner...';
+    var manualEl = document.getElementById('scan-manual-input');
+    if (manualEl) manualEl.value = '';
+  });
 }
 
 async function toggleTorch() {
-  // Get video track from active stream
-  var video = document.getElementById('scan-video');
-  if (!video || !video.srcObject) return;
-  var track = video.srcObject.getVideoTracks()[0];
-  if (!track) return;
+  if (!_html5QrScanner || !_html5QrScanner.isScanning) {
+    toast('Start the scanner first', 'info');
+    return;
+  }
   try {
     _torchOn = !_torchOn;
-    await track.applyConstraints({ advanced: [{ torch: _torchOn }] });
+    await _html5QrScanner.applyVideoConstraints({
+      advanced: [{ torch: _torchOn }]
+    });
     var tb = document.getElementById('torch-btn');
     if (tb) tb.style.color = _torchOn ? 'var(--cy)' : '';
   } catch(e) {
-    toast('Torch not available on this device', 'info');
+    toast('Torch not supported on this device', 'info');
+    _torchOn = false;
   }
 }
+
+function scanManualEntry() {
+  var val = (document.getElementById('scan-manual-input').value || '').trim();
+  if (!val) { toast('Please enter a code first', 'error'); return; }
+  closeScanner();
+  var inp = document.getElementById(_scannerTargetId);
+  if (inp) { inp.value = val; inp.focus(); }
+  toast('Code set: ' + val, 'success');
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // -- PDF Reports -------------------------------
 function openDamageReport() {
@@ -2888,14 +2919,7 @@ showPage = function(n) {
 };
 
 
-function scanManualEntry() {
-  var val = (document.getElementById('scan-manual-input').value || '').trim();
-  if (!val) { toast('Please enter a code first', 'error'); return; }
-  closeScanner();
-  var inp = document.getElementById(_scannerTargetId);
-  if (inp) { inp.value = val; inp.focus(); }
-  toast('Code entered: ' + val, 'success');
-}
+
 
 </script>
 </body>
