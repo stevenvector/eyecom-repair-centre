@@ -913,13 +913,24 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
 
 <!-- Scanner Overlay -->
 <div class="scan-overlay" id="scan-overlay">
-  <div class="scan-target">
-    <video id="scan-video" class="scan-video" autoplay playsinline muted></video>
-  </div>
-  <div style="color:var(--tp);font-size:14px;margin-bottom:16px">Point camera at QR code or barcode</div>
-  <div style="display:flex;gap:10px">
-    <button class="btn bout" onclick="closeScanner()">Cancel</button>
-    <button class="btn bout" onclick="toggleTorch()" id="torch-btn">&#128294; Torch</button>
+  <div style="width:min(340px,90vw);text-align:center">
+    <div class="scan-target" style="display:inline-block;margin-bottom:12px">
+      <video id="scan-video" class="scan-video" autoplay playsinline muted style="width:min(320px,88vw);border-radius:10px;border:2px solid var(--c1);display:block"></video>
+    </div>
+    <div style="color:var(--c1);font-size:13px;margin-bottom:4px" id="scan-status">Initialising camera...</div>
+    <div style="color:var(--tm);font-size:11px;margin-bottom:14px">Supports QR codes, barcodes (Code128, EAN, UPC, Code39)</div>
+    <!-- Manual entry fallback -->
+    <div style="background:rgba(255,255,255,.05);border-radius:8px;padding:12px;margin-bottom:12px">
+      <div style="font-size:11px;color:var(--tm);margin-bottom:6px">Or type / paste the code manually:</div>
+      <div style="display:flex;gap:6px">
+        <input type="text" id="scan-manual-input" placeholder="Enter code..." style="flex:1;background:var(--bg);border:1px solid var(--bdr);border-radius:6px;padding:8px 10px;color:var(--tp);font-family:Inter,sans-serif;font-size:13px;outline:none" autocomplete="off" autocapitalize="off">
+        <button class="btn bcyan bsm" onclick="scanManualEntry()">Use</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:center">
+      <button class="btn bout" onclick="closeScanner()">Cancel</button>
+      <button class="btn bout" onclick="toggleTorch()" id="torch-btn">&#128294; Torch</button>
+    </div>
   </div>
 </div>
 
@@ -955,6 +966,19 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/index.min.js"></script>
+<script>
+// ZXing namespace shim - normalise export name
+window.addEventListener('load', function() {
+  if (typeof ZXingBrowser === 'undefined') {
+    if (typeof window['@zxing/browser'] !== 'undefined') {
+      window.ZXingBrowser = window['@zxing/browser'];
+    } else if (typeof ZXing !== 'undefined') {
+      window.ZXingBrowser = ZXing;
+    }
+  }
+});
+</script>
 <script>
 // ==============================================
 //  CONFIG
@@ -1340,27 +1364,8 @@ async function renderDash(){
 function refreshAllTables(){if(document.getElementById('page-dashboard').classList.contains('active'))renderJobsTable();if(document.getElementById('page-jobs').classList.contains('active'))renderAllJobs();}
 async function getSessionsMap(){var sessions=await loadSessions();var map={};sessions.forEach(function(s){if(!map[s.job_id])map[s.job_id]=[];map[s.job_id].push(s);});return map;}
 function activeTechsHtml(sessions){if(!sessions||!sessions.length)return'<span style="color:var(--tm);font-size:12px">-</span>';return sessions.map(function(s){return'<span class="chip" style="background:rgba(0,255,136,.1);color:var(--cg)"><span class="ldot2"></span>'+userName(s.user_id).split(' ')[0]+'</span>';}).join(' ');}
-async function renderJobsTable(){
-  var sf=document.getElementById('dsf')?document.getElementById('dsf').value:'';
-  var pf=document.getElementById('dpf')?document.getElementById('dpf').value:'';
-  var sessMap=await getSessionsMap();
-  var f=allJobs;
-  if(!CU.is_admin&&!CU.is_senior)f=f.filter(function(j){return j.assigned_to===CU.id||(sessMap[j.id]||[]).some(function(s){return s.user_id===CU.id;});});
-  if(sf)f=f.filter(function(j){return j.status===sf;});
-  if(pf)f=f.filter(function(j){return j.priority===pf;});
-  document.getElementById('jtb').innerHTML=jobRows(f,sessMap,false);
-}
-async function renderAllJobs(){
-  var s=(document.getElementById('jsearch').value||'').toLowerCase();
-  var sf=document.getElementById('jasf').value;
-  var pf=document.getElementById('japf').value;
-  var sessMap=await getSessionsMap();
-  var f=allJobs;
-  if(s)f=f.filter(function(j){return j.job_name.toLowerCase().includes(s)||j.client.toLowerCase().includes(s)||j.job_number.toLowerCase().includes(s)||(j.batch||'').toLowerCase().includes(s);});
-  if(sf)f=f.filter(function(j){return j.status===sf;});
-  if(pf)f=f.filter(function(j){return j.priority===pf;});
-  document.getElementById('ajtb').innerHTML=jobRows(f,sessMap,true);
-}
+async function renderJobsTable(){var sf=document.getElementById('dsf').value,pf=document.getElementById('dpf').value,sessMap=await getSessionsMap();var f=allJobs;if(!CU.is_admin&&!CU.is_senior)f=f.filter(function(j){return j.assigned_to===CU.id||(sessMap[j.id]||[]).some(function(s){return s.user_id===CU.id;});});if(sf)f=f.filter(function(j){return j.status===sf;});if(pf)f=f.filter(function(j){return j.priority===pf;});document.getElementById('jtb').innerHTML=jobRows(f,sessMap,false);}
+async function renderAllJobs(){var s=(document.getElementById('jsearch').value||'').toLowerCase(),sf=document.getElementById('jasf').value,pf=document.getElementById('japf').value,sessMap=await getSessionsMap();var f=allJobs;if(s)f=f.filter(function(j){return j.job_name.toLowerCase().includes(s)||j.client.toLowerCase().includes(s)||j.job_number.toLowerCase().includes(s)||(j.batch||'').toLowerCase().includes(s);});if(sf)f=f.filter(function(j){return j.status===sf;});if(pf)f=f.filter(function(j){return j.priority===pf;});document.getElementById('ajtb').innerHTML=jobRows(f,sessMap,true);}
 function jobRows(arr,sessMap,showDate){
   if(!arr.length)return'<tr><td colspan="12"><div class="empty"><div class="eico"> </div><p class="etxt">No jobs found</p></div></td></tr>';
   return arr.map(function(j){
@@ -1374,8 +1379,7 @@ function jobRows(arr,sessMap,showDate){
     if(CU.is_admin)acts+=' <button class="btn bdanger bsm" onclick="delJob(\''+j.id+'\')"> </button>';
     var dc=showDate?'<td style="font-size:12px;color:var(--tm)">'+(j.job_date?j.job_date.slice(0,10):'-')+'</td>':'';
     var bc2=showDate?'<td><code style="font-size:11px;background:rgba(0,212,255,.07);padding:2px 5px;border-radius:4px">'+(j.batch||'-')+'</code></td>':'';
-
-    return '<tr><td><span style="font-family:Rajdhani,sans-serif;color:var(--c1);font-weight:600">'+j.job_number+'</span></td><td><span style="font-weight:500">'+j.job_name+'</span></td><td style="color:var(--tm)">'+j.client+'</td>'+bc2+'<td><span style="background:rgba(168,85,247,.1);color:var(--cp);padding:2px 7px;border-radius:4px;font-size:12px;font-weight:600">'+(j.pitch||'-')+'</span></td><td style="text-align:center">'+j.qty+'</td><td><span class="pb '+pc2+'">'+j.priority+'</span></td><td><span class="bdg '+sc2+'"><span class="bdot"></span>'+j.status+'</span></td><td>'+activeTechsHtml(sessions)+'</td>'+dc+'<td><div class="abtns">'+acts+'</div></td></tr>';
+    return'<tr><td><span style="font-family:Rajdhani,sans-serif;color:var(--c1);font-weight:600">'+j.job_number+'</span></td><td><span style="font-weight:500">'+j.job_name+'</span></td><td style="color:var(--tm)">'+j.client+'</td>'+bc2+'<td><span style="background:rgba(168,85,247,.1);color:var(--cp);padding:2px 7px;border-radius:4px;font-size:12px;font-weight:600">'+(j.pitch||'-')+'</span></td><td style="text-align:center">'+j.qty+'</td><td><span class="pb '+pc2+'">'+j.priority+'</span></td><td><span class="bdg '+sc2+'"><span class="bdot"></span>'+j.status+'</span></td><td>'+activeTechsHtml(sessions)+'</td>'+dc+'<td><div class="abtns">'+acts+'</div></td></tr>';
   }).join('');
 }
 
@@ -1430,7 +1434,127 @@ async function applyStatus(){var j=allJobs.find(function(x){return x.id===stJid;
 // ==============================================
 function prepReports(){var today=new Date(),fd=document.getElementById('rep-from'),td=document.getElementById('rep-to');if(fd&&!fd.value)fd.value=new Date(today.getFullYear(),today.getMonth(),1).toISOString().slice(0,10);if(td&&!td.value)td.value=today.toISOString().slice(0,10);}
 function getFilteredLogs(){var from=document.getElementById('rep-from').value,to=document.getElementById('rep-to').value,uid=document.getElementById('rep-user').value,logs=allLogs;if(from)logs=logs.filter(function(wl){return wl.start_time>=from;});if(to)logs=logs.filter(function(wl){return wl.start_time<=(to+'T23:59');});if(uid)logs=logs.filter(function(wl){return wl.user_id===uid;});return logs;}
-function generateReport(){var logs=getFilteredLogs(),from=document.getElementById('rep-from').value||'-',to=document.getElementById('rep-to').value||'-';if(!logs.length){document.getElementById('rep-preview').innerHTML='<div class="empty"><div class="eico"> </div><p class="etxt">No logs found for this period</p></div>';return;}var totLt3=0,totGt3=0,totTrack=0,totChip=0,totBer=0,totQty=0;logs.forEach(function(wl){totLt3+=wl.lt3;totGt3+=wl.gt3;totTrack+=wl.track;totChip+=wl.chip;totBer+=wl.ber;totQty+=wl.qty;});var byUser={};logs.forEach(function(wl){if(!byUser[wl.user_id])byUser[wl.user_id]=[];byUser[wl.user_id].push(wl);});var html='<div style="background:var(--bgc);border:1px solid var(--bdr);border-radius:12px;padding:20px"><div style="margin-bottom:16px"><div style="font-family:Rajdhani,sans-serif;font-size:20px;font-weight:700;color:var(--c1)">Work Log Report</div><div style="font-size:12px;color:var(--tm)">'+from+' to '+to+' . '+logs.length+' sessions</div></div><div class="sg" style="margin-bottom:16px"><div class="sc blue"><div class="slb">&lt;3 Pixels</div><div class="sv">'+totLt3+'</div></div><div class="sc red"><div class="slb">&gt;3 Pixels</div><div class="sv">'+totGt3+'</div></div><div class="sc orange"><div class="slb">Track Dmg</div><div class="sv">'+totTrack+'</div></div><div class="sc green"><div class="slb">Total Modules</div><div class="sv">'+totQty+'</div></div></div>';Object.keys(byUser).forEach(function(uid){var u=allUsers.find(function(x){return x.id===uid;}),ulogs=byUser[uid],uSecs=0,uLt3=0,uGt3=0,uTrack=0,uChip=0,uBer=0,uQty=0;ulogs.forEach(function(wl){uLt3+=wl.lt3;uGt3+=wl.gt3;uTrack+=wl.track;uChip+=wl.chip;uBer+=wl.ber;uQty+=wl.qty;if(wl.start_time&&wl.end_time)uSecs+=Math.floor((new Date(wl.end_time)-new Date(wl.start_time))/1000);});html+='<div class="rep-section"><div class="rep-title">'+(u?u.name:'Unknown')+' <span style="font-size:12px;color:var(--tm);font-family:Inter,sans-serif;font-weight:400">'+(u?u.role:'')+' . '+ulogs.length+' session(s) . '+fmtDur(uSecs)+'</span></div><table class="rep-table"><thead><tr><th>Job</th><th>Start</th><th>End</th><th>Dur</th><th>&lt;3</th><th>&gt;3</th><th>Track</th><th>Chip</th><th>BER</th><th>Qty</th><th>Notes</th></tr></thead><tbody>'+ulogs.map(function(wl){var j2=allJobs.find(function(x){return x.id===wl.job_id;}),dur='-';if(wl.start_time&&wl.end_time)dur=fmtDur(Math.floor((new Date(wl.end_time)-new Date(wl.start_time))/1000));return'<tr><td>'+(j2?j2.job_number:'?')+'<br><span style="color:var(--tm);font-size:11px">'+(j2?j2.client:'')+'</span></td><td>'+(wl.start_time?wl.start_time.slice(0,16).replace('T',' '):'-')+'</td><td>'+(wl.end_time?wl.end_time.slice(0,16).replace('T',' '):'-')+'</td><td style="color:var(--c1)">'+dur+'</td><td>'+wl.lt3+'</td><td style="color:var(--cr)">'+wl.gt3+'</td><td>'+wl.track+'</td><td>'+wl.chip+'</td><td>'+wl.ber+'</td><td style="font-weight:700;color:var(--cg)">'+wl.qty+'</td><td style="font-size:11px;color:var(--tm);max-width:120px">'+(wl.notes||'-')+'</td></tr>';}).join('')+'<tr style="background:rgba(0,212,255,.05)"><td colspan="4" style="font-weight:600">TOTALS</td><td>'+uLt3+'</td><td style="color:var(--cr)">'+uGt3+'</td><td>'+uTrack+'</td><td>'+uChip+'</td><td>'+uBer+'</td><td style="font-weight:700;color:var(--cg)">'+uQty+'</td><td></td></tr></tbody></table></div>';});html+='</div>';document.getElementById('rep-preview').innerHTML=html;}
+function generateReport(){
+  var logs=getFilteredLogs();
+  var from=document.getElementById('rep-from').value||'-';
+  var to=document.getElementById('rep-to').value||'-';
+  if(!logs.length){
+    document.getElementById('rep-preview').innerHTML='<div class="empty"><div class="eico"> </div><p class="etxt">No logs found for this period</p></div>';
+    return;
+  }
+
+  // Grand totals
+  var totSess=logs.length,totSecs=0,totLt3=0,totGt3=0,totTrack=0,totChip=0,totBer=0,totQty=0;
+  logs.forEach(function(wl){
+    totLt3+=wl.lt3;totGt3+=wl.gt3;totTrack+=wl.track;totChip+=wl.chip;totBer+=wl.ber;totQty+=wl.qty;
+    if(wl.start_time&&wl.end_time)totSecs+=Math.floor((new Date(wl.end_time)-new Date(wl.start_time))/1000);
+  });
+
+  // Group: user -> job -> sessions
+  var byUser={};
+  logs.forEach(function(wl){
+    if(!byUser[wl.user_id])byUser[wl.user_id]={};
+    var jid=wl.job_id||'__unknown__';
+    if(!byUser[wl.user_id][jid])byUser[wl.user_id][jid]=[];
+    byUser[wl.user_id][jid].push(wl);
+  });
+
+  var h='<div style="background:var(--bgc);border:1px solid var(--bdr);border-radius:12px;padding:20px">';
+  h+='<div style="margin-bottom:16px">';
+  h+='<div style="font-family:Rajdhani,sans-serif;font-size:20px;font-weight:700;color:var(--c1)">Work Log Summary Report</div>';
+  h+='<div style="font-size:12px;color:var(--tm)">'+from+' to '+to+'  &middot;  '+totSess+' sessions  &middot;  '+fmtDur(totSecs)+' total  &middot;  '+Object.keys(byUser).length+' technicians</div>';
+  h+='</div>';
+
+  // Grand total stat cards
+  h+='<div class="sg" style="margin-bottom:22px">';
+  h+='<div class="sc blue"><div class="slb">Sessions</div><div class="sv">'+totSess+'</div></div>';
+  h+='<div class="sc orange"><div class="slb">Total Time</div><div class="sv" style="font-size:18px">'+fmtDur(totSecs)+'</div></div>';
+  h+='<div class="sc green"><div class="slb">Modules</div><div class="sv">'+totQty+'</div></div>';
+  h+='<div class="sc red"><div class="slb">Technicians</div><div class="sv">'+Object.keys(byUser).length+'</div></div>';
+  h+='</div>';
+
+  // Per-technician section
+  Object.keys(byUser).forEach(function(uid){
+    var u=allUsers.find(function(x){return x.id===uid;});
+    var uJobs=byUser[uid];
+    var uSecs=0,uLt3=0,uGt3=0,uTrack=0,uChip=0,uBer=0,uQty=0,uSess=0;
+    Object.keys(uJobs).forEach(function(jid){
+      uJobs[jid].forEach(function(wl){
+        uLt3+=wl.lt3;uGt3+=wl.gt3;uTrack+=wl.track;uChip+=wl.chip;uBer+=wl.ber;uQty+=wl.qty;uSess++;
+        if(wl.start_time&&wl.end_time)uSecs+=Math.floor((new Date(wl.end_time)-new Date(wl.start_time))/1000);
+      });
+    });
+
+    // Tech header
+    h+='<div style="background:var(--bgc2);border:1px solid var(--bdr);border-radius:10px;overflow:hidden;margin-bottom:16px">';
+    h+='<div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--bdr);background:rgba(0,0,0,.2)">';
+    var init=(u?(u.initials||(u.name.split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase())):'?');
+    h+='<div style="width:38px;height:38px;border-radius:50%;background:rgba(0,212,255,.12);display:flex;align-items:center;justify-content:center;font-family:Rajdhani,sans-serif;font-size:14px;font-weight:700;color:var(--c1);border:1px solid rgba(0,212,255,.3);flex-shrink:0">'+init+'</div>';
+    h+='<div style="flex:1"><div style="font-family:Rajdhani,sans-serif;font-size:17px;font-weight:700">'+(u?u.name:'Unknown')+'</div>';
+    h+='<div style="font-size:11px;color:var(--tm)">'+(u?u.role:'')+' &nbsp;&middot;&nbsp; '+uSess+' session'+(uSess!==1?'s':'')+' &nbsp;&middot;&nbsp; '+fmtDur(uSecs)+' total time</div></div>';
+    // Tech totals inline
+    h+='<div style="display:flex;gap:14px;flex-wrap:wrap">';
+    h+='<div style="text-align:right"><div style="font-family:Rajdhani,sans-serif;font-size:18px;font-weight:700;color:var(--cg)">'+uQty+'</div><div style="font-size:10px;color:var(--tm);text-transform:uppercase;letter-spacing:.5px">Modules</div></div>';
+    h+='<div style="text-align:right"><div style="font-family:Rajdhani,sans-serif;font-size:18px;font-weight:700;color:var(--cy)">'+uLt3+'</div><div style="font-size:10px;color:var(--tm);text-transform:uppercase;letter-spacing:.5px">&lt;3 Px</div></div>';
+    h+='<div style="text-align:right"><div style="font-family:Rajdhani,sans-serif;font-size:18px;font-weight:700;color:var(--cr)">'+uGt3+'</div><div style="font-size:10px;color:var(--tm);text-transform:uppercase;letter-spacing:.5px">&gt;3 Px</div></div>';
+    h+='</div></div>';
+
+    // Job summary table for this tech
+    h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+    h+='<thead><tr>';
+    ['Job #','Job Name','Client','Pitch','Sessions','Time Spent','<3 Px','>3 Px','Track','Chip','BER','Modules'].forEach(function(t){
+      h+='<th style="padding:7px 12px;text-align:left;font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--tm);border-bottom:1px solid var(--bdr);white-space:nowrap;background:rgba(0,0,0,.15)">'+t+'</th>';
+    });
+    h+='</tr></thead><tbody>';
+
+    var jobKeys=Object.keys(uJobs);
+    var jTotSecs=0,jTotSess=0,jTotLt3=0,jTotGt3=0,jTotTrack=0,jTotChip=0,jTotBer=0,jTotQty=0;
+
+    jobKeys.forEach(function(jid,idx){
+      var jlogs=uJobs[jid];
+      var job=allJobs.find(function(x){return x.id===jid;});
+      var jSecs=0,jLt3=0,jGt3=0,jTrack=0,jChip=0,jBer=0,jQty=0;
+      jlogs.forEach(function(wl){
+        jLt3+=wl.lt3;jGt3+=wl.gt3;jTrack+=wl.track;jChip+=wl.chip;jBer+=wl.ber;jQty+=wl.qty;
+        if(wl.start_time&&wl.end_time)jSecs+=Math.floor((new Date(wl.end_time)-new Date(wl.start_time))/1000);
+      });
+      jTotSecs+=jSecs;jTotSess+=jlogs.length;jTotLt3+=jLt3;jTotGt3+=jGt3;
+      jTotTrack+=jTrack;jTotChip+=jChip;jTotBer+=jBer;jTotQty+=jQty;
+
+      var rowBg=idx%2===0?'':'background:rgba(255,255,255,.02)';
+      h+='<tr style="'+rowBg+'">';
+      h+='<td style="padding:8px 12px;font-family:Rajdhani,sans-serif;font-weight:700;color:var(--c1)">'+(job?job.job_number:'?')+'</td>';
+      h+='<td style="padding:8px 12px;font-weight:500">'+(job?job.job_name:'Unknown')+'</td>';
+      h+='<td style="padding:8px 12px;color:var(--tm)">'+(job?job.client:'-')+'</td>';
+      h+='<td style="padding:8px 12px"><span style="background:rgba(168,85,247,.1);color:var(--cp);padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600">'+(job&&job.pitch?job.pitch:'-')+'</span></td>';
+      h+='<td style="padding:8px 12px;text-align:center;color:var(--tm)">'+jlogs.length+'</td>';
+      h+='<td style="padding:8px 12px;font-family:Rajdhani,sans-serif;color:var(--c1);font-weight:600;white-space:nowrap">'+fmtDur(jSecs)+'</td>';
+      h+='<td style="padding:8px 12px;text-align:center;color:var(--cy);font-weight:600">'+jLt3+'</td>';
+      h+='<td style="padding:8px 12px;text-align:center;color:var(--cr);font-weight:600">'+jGt3+'</td>';
+      h+='<td style="padding:8px 12px;text-align:center;color:var(--c2)">'+jTrack+'</td>';
+      h+='<td style="padding:8px 12px;text-align:center;color:var(--cp)">'+jChip+'</td>';
+      h+='<td style="padding:8px 12px;text-align:center;color:var(--cr)">'+jBer+'</td>';
+      h+='<td style="padding:8px 12px;text-align:center;font-family:Rajdhani,sans-serif;font-size:15px;font-weight:700;color:var(--cg)">'+jQty+'</td>';
+      h+='</tr>';
+    });
+
+    // Technician totals row
+    h+='<tr style="background:rgba(0,212,255,.07);border-top:1px solid var(--bdr)">';
+    h+='<td colspan="4" style="padding:8px 12px;font-family:Rajdhani,sans-serif;font-weight:700;color:var(--c1)">TOTAL</td>';
+    h+='<td style="padding:8px 12px;text-align:center;font-weight:700">'+jTotSess+'</td>';
+    h+='<td style="padding:8px 12px;font-family:Rajdhani,sans-serif;font-weight:700;color:var(--c1)">'+fmtDur(jTotSecs)+'</td>';
+    h+='<td style="padding:8px 12px;text-align:center;font-weight:700;color:var(--cy)">'+jTotLt3+'</td>';
+    h+='<td style="padding:8px 12px;text-align:center;font-weight:700;color:var(--cr)">'+jTotGt3+'</td>';
+    h+='<td style="padding:8px 12px;text-align:center;font-weight:700;color:var(--c2)">'+jTotTrack+'</td>';
+    h+='<td style="padding:8px 12px;text-align:center;font-weight:700;color:var(--cp)">'+jTotChip+'</td>';
+    h+='<td style="padding:8px 12px;text-align:center;font-weight:700;color:var(--cr)">'+jTotBer+'</td>';
+    h+='<td style="padding:8px 12px;text-align:center;font-family:Rajdhani,sans-serif;font-size:16px;font-weight:700;color:var(--cg)">'+jTotQty+'</td>';
+    h+='</tr>';
+    h+='</tbody></table></div></div>';
+  });
+  h+='</div>';
+  document.getElementById('rep-preview').innerHTML=h;
+}
 function downloadPDF(){
   var logs=getFilteredLogs();
   var from=document.getElementById('rep-from').value||'all';
@@ -1438,299 +1562,291 @@ function downloadPDF(){
   if(!logs.length){toast('No logs for this period','error');return;}
   if(typeof window.jspdf==='undefined'){toast('PDF library loading, try again','info');return;}
 
-  // -- Colour palette ------------------------------------------------------
-  // Dark backgrounds
-  var BG_PAGE   = [10,  13,  20];   // #0a0d14 - page background
-  var BG_HEADER = [17,  24,  39];   // #111827 - header band
-  var BG_BAND   = [26,  34,  52];   // #1a2234 - alternate row / section band
-  var BG_CARD   = [17,  24,  39];   // #111827 - stat cards
-  var BG_TOTALS = [10,  13,  20];   // darkest row for totals
-  // Accent colours
-  var CYAN      = [0,   212, 255];  // #00d4ff
-  var GREEN     = [0,   255, 136];  // #00ff88
-  var AMBER     = [255, 204, 0  ];  // #ffcc00
-  var RED       = [255, 51,  85 ];  // #ff3355
-  var ORANGE    = [255, 107, 0  ];  // #ff6b00
-  var PURPLE    = [168, 85,  247];  // #a855f7
-  // Text colours
-  var TXT_PRI   = [232, 234, 240];  // #e8eaf0
-  var TXT_MUT   = [120, 133, 153];  // #7a8599
-  var TXT_DIM   = [60,  70,  90 ];  // dim border line colour
-  // Border colour (subtle)
-  var BORDER    = [30,  42,  65 ];  // #1e2a41
+  var doc=new window.jspdf.jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+  var W=297,H=210,M=12;
 
-  var doc = new window.jspdf.jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
-  var W=297, H=210, M=12;
+  // Colours
+  var BG_PAGE =[10,13,20];
+  var BG_HDR  =[17,24,39];
+  var BG_BAND =[26,34,52];
+  var CYAN    =[0,212,255];
+  var GREEN   =[0,255,136];
+  var AMBER   =[255,204,0];
+  var RED     =[255,51,85];
+  var ORANGE  =[255,107,0];
+  var PURPLE  =[168,85,247];
+  var TXT_PRI =[232,234,240];
+  var TXT_MUT =[120,133,153];
+  var BORDER  =[30,42,65];
 
-  // -- Helper to start a new page with full dark background --------------
   function newPage(){
     doc.addPage();
-    doc.setFillColor.apply(doc, BG_PAGE);
+    doc.setFillColor.apply(doc,BG_PAGE);
     doc.rect(0,0,W,H,'F');
   }
 
-  // -- Fill first page background ----------------------------------------
-  doc.setFillColor.apply(doc, BG_PAGE);
+  // Grand totals
+  var totSess=logs.length,totSecs=0,totLt3=0,totGt3=0,totTrack=0,totChip=0,totBer=0,totQty=0;
+  logs.forEach(function(wl){
+    totLt3+=wl.lt3;totGt3+=wl.gt3;totTrack+=wl.track;totChip+=wl.chip;totBer+=wl.ber;totQty+=wl.qty;
+    if(wl.start_time&&wl.end_time)totSecs+=Math.floor((new Date(wl.end_time)-new Date(wl.start_time))/1000);
+  });
+
+  // Group: user -> job -> sessions
+  var byUser={};
+  logs.forEach(function(wl){
+    if(!byUser[wl.user_id])byUser[wl.user_id]={};
+    var jid=wl.job_id||'__unknown__';
+    if(!byUser[wl.user_id][jid])byUser[wl.user_id][jid]=[];
+    byUser[wl.user_id][jid].push(wl);
+  });
+
+  // ---- PAGE 1: MASTER SUMMARY ----
+  doc.setFillColor.apply(doc,BG_PAGE);
   doc.rect(0,0,W,H,'F');
 
-  // -- HEADER BAND -------------------------------------------------------
-  doc.setFillColor.apply(doc, BG_HEADER);
-  doc.rect(0,0,W,28,'F');
+  // Header
+  doc.setFillColor.apply(doc,BG_HDR);
+  doc.rect(0,0,W,26,'F');
+  doc.setFillColor.apply(doc,CYAN);
+  doc.rect(0,0,3,26,'F');
+  doc.setFillColor.apply(doc,CYAN);
+  doc.circle(M+5,13,4,'F');
+  doc.setFillColor.apply(doc,BG_PAGE);
+  doc.circle(M+5,13,2,'F');
+  doc.setFont('helvetica','bold');doc.setFontSize(14);doc.setTextColor.apply(doc,TXT_PRI);
+  doc.text('EYECOM LED SOLUTIONS - REPAIR CENTRE',M+13,11);
+  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor.apply(doc,CYAN);
+  doc.text('WORK LOG SUMMARY REPORT - BY TECHNICIAN',M+13,18);
+  doc.setFontSize(7.5);doc.setTextColor.apply(doc,TXT_MUT);
+  doc.text('Period: '+from+' to '+to+'   |   '+totSess+' sessions   |   '+Object.keys(byUser).length+' technicians',M+13,23.5);
+  doc.text('Generated: '+new Date().toLocaleString(),W-M,23.5,{align:'right'});
 
-  // Cyan accent left bar
-  doc.setFillColor.apply(doc, CYAN);
-  doc.rect(0,0,3,28,'F');
+  var y=34;
 
-  // Company logo dot
-  doc.setFillColor.apply(doc, CYAN);
-  doc.circle(M+5, 14, 4, 'F');
-  doc.setFillColor.apply(doc, BG_PAGE);
-  doc.circle(M+5, 14, 2, 'F');
-
-  // Title
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(15);
-  doc.setTextColor.apply(doc, TXT_PRI);
-  doc.text('EYECOM LED SOLUTIONS', M+13, 11);
-  doc.setFontSize(8.5);
-  doc.setFont('helvetica','normal');
-  doc.setTextColor.apply(doc, CYAN);
-  doc.text('REPAIR CENTRE  \u2014  WORK LOG REPORT', M+13, 17);
-
-  // Period + generated
-  doc.setFontSize(7.5);
-  doc.setTextColor.apply(doc, TXT_MUT);
-  doc.text('Period: '+from+' \u2192 '+to, M+13, 24);
-  doc.text('Generated: '+new Date().toLocaleString(), W-M, 24, {align:'right'});
-
-  var y = 36;
-
-  // -- PERIOD TOTALS - stat cards row ------------------------------------
-  var totLt3=0,totGt3=0,totTrack=0,totChip=0,totBer=0,totQty=0,totSess=logs.length;
-  logs.forEach(function(wl){totLt3+=wl.lt3;totGt3+=wl.gt3;totTrack+=wl.track;totChip+=wl.chip;totBer+=wl.ber;totQty+=wl.qty;});
-
-  var stats=[
-    {label:'Sessions',   val:totSess, col:CYAN},
-    {label:'<3 Pixels',  val:totLt3,  col:AMBER},
-    {label:'>3 Pixels',  val:totGt3,  col:RED},
-    {label:'Track Dmg',  val:totTrack,col:ORANGE},
-    {label:'Chip Faults',val:totChip, col:PURPLE},
-    {label:'B.E.R',      val:totBer,  col:RED},
-    {label:'Total Modules',val:totQty,col:GREEN},
+  // Grand stat cards
+  var gcards=[
+    {l:'Sessions',v:totSess,c:CYAN},
+    {l:'Total Time',v:fmtDur(totSecs),c:AMBER,small:true},
+    {l:'Technicians',v:Object.keys(byUser).length,c:PURPLE},
+    {l:'<3 Pixels',v:totLt3,c:AMBER},
+    {l:'>3 Pixels',v:totGt3,c:RED},
+    {l:'Track Damage',v:totTrack,c:ORANGE},
+    {l:'Chip Faults',v:totChip,c:PURPLE},
+    {l:'B.E.R',v:totBer,c:RED},
+    {l:'Total Modules',v:totQty,c:GREEN}
   ];
-
-  var cardW=(W-M*2-6)/stats.length, cardH=18;
-  stats.forEach(function(s,i){
-    var cx=M+i*(cardW+1);
-    // Card bg
-    doc.setFillColor.apply(doc, BG_CARD);
-    doc.roundedRect(cx, y, cardW, cardH, 1.5, 1.5, 'F');
-    // Accent top stripe
-    doc.setFillColor.apply(doc, s.col);
-    doc.roundedRect(cx, y, cardW, 2, 1, 0, 'F');
-    doc.rect(cx, y+1, cardW, 1, 'F'); // fill the bottom half of rounding
-    // Value
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(12);
-    doc.setTextColor.apply(doc, s.col);
-    doc.text(String(s.val), cx+cardW/2, y+10, {align:'center'});
-    // Label
-    doc.setFont('helvetica','normal');
-    doc.setFontSize(5.5);
-    doc.setTextColor.apply(doc, TXT_MUT);
-    doc.text(s.label.toUpperCase(), cx+cardW/2, y+15.5, {align:'center'});
+  var cw=(W-M*2-8)/gcards.length,ch=18;
+  gcards.forEach(function(s,i){
+    var cx=M+i*(cw+1);
+    doc.setFillColor.apply(doc,BG_BAND);
+    doc.roundedRect(cx,y,cw,ch,1.5,1.5,'F');
+    doc.setFillColor.apply(doc,s.c);
+    doc.roundedRect(cx,y,cw,2,1,0,'F');
+    doc.rect(cx,y+1,cw,1,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(s.small?7.5:10);doc.setTextColor.apply(doc,s.c);
+    doc.text(String(s.v),cx+cw/2,y+10,{align:'center'});
+    doc.setFont('helvetica','normal');doc.setFontSize(4.8);doc.setTextColor.apply(doc,TXT_MUT);
+    doc.text(s.l.toUpperCase(),cx+cw/2,y+15.5,{align:'center'});
   });
+  y+=ch+10;
 
-  y += cardH + 10;
+  // Master summary: one row per technician
+  doc.setFillColor.apply(doc,BG_BAND);
+  doc.rect(M,y,W-M*2,9,'F');
+  doc.setFillColor.apply(doc,CYAN);
+  doc.rect(M,y,2.5,9,'F');
+  doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor.apply(doc,TXT_PRI);
+  doc.text('TECHNICIAN OVERVIEW',M+6,y+5.8);
+  y+=12;
 
-  // -- SECTION RULE helper -----------------------------------------------
-  function sectionHeader(title, subtitle){
-    if(y > 175){ newPage(); y=20; }
-    // Full-width band
-    doc.setFillColor.apply(doc, BG_BAND);
-    doc.rect(M, y, W-M*2, 9, 'F');
-    // Cyan left accent
-    doc.setFillColor.apply(doc, CYAN);
-    doc.rect(M, y, 2.5, 9, 'F');
-    // Title
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(8);
-    doc.setTextColor.apply(doc, TXT_PRI);
-    doc.text(title, M+6, y+5.8);
-    // Subtitle (right)
-    if(subtitle){
-      doc.setFont('helvetica','normal');
-      doc.setFontSize(7);
-      doc.setTextColor.apply(doc, TXT_MUT);
-      doc.text(subtitle, W-M, y+5.8, {align:'right'});
-    }
-    y += 12;
-  }
+  var masterRows=Object.keys(byUser).map(function(uid){
+    var u=allUsers.find(function(x){return x.id===uid;});
+    var uJobs=byUser[uid];
+    var uSecs=0,uLt3=0,uGt3=0,uTrack=0,uChip=0,uBer=0,uQty=0,uSess=0;
+    Object.keys(uJobs).forEach(function(jid){
+      uJobs[jid].forEach(function(wl){
+        uLt3+=wl.lt3;uGt3+=wl.gt3;uTrack+=wl.track;uChip+=wl.chip;uBer+=wl.ber;uQty+=wl.qty;uSess++;
+        if(wl.start_time&&wl.end_time)uSecs+=Math.floor((new Date(wl.end_time)-new Date(wl.start_time))/1000);
+      });
+    });
+    return [
+      u?u.name:'Unknown',
+      u?u.role:'-',
+      String(Object.keys(uJobs).length),
+      String(uSess),
+      fmtDur(uSecs),
+      String(uLt3),String(uGt3),String(uTrack),String(uChip),String(uBer),String(uQty)
+    ];
+  });
+  masterRows.push(['TOTALS','','-',String(totSess),fmtDur(totSecs),String(totLt3),String(totGt3),String(totTrack),String(totChip),String(totBer),String(totQty)]);
 
-  // -- TABLE STYLES (shared) ---------------------------------------------
-  var tblHeadStyles = {
-    fillColor: BG_BAND,
-    textColor: CYAN,
-    fontSize: 6.5,
-    fontStyle: 'bold',
-    lineColor: BORDER,
-    lineWidth: 0.3,
-    halign: 'center',
-    cellPadding: 2.5,
-  };
-  var tblBodyStyles = {
-    fillColor: BG_PAGE,
-    textColor: TXT_PRI,
-    fontSize: 6.5,
-    lineColor: BORDER,
-    lineWidth: 0.2,
-    cellPadding: 2,
-  };
-  var tblAltStyles = {
-    fillColor: BG_BAND,
-  };
-  var tblFootStyles = {
-    fillColor: BG_HEADER,
-    textColor: GREEN,
-    fontStyle: 'bold',
-    fontSize: 7,
-    lineColor: BORDER,
-    lineWidth: 0.3,
-  };
-
-  // -- SUMMARY TABLE -----------------------------------------------------
-  sectionHeader('PERIOD SUMMARY', from+' to '+to+' \u00b7 '+totSess+' session'+(totSess!==1?'s':''));
   doc.autoTable({
-    startY: y,
-    head: [['Sessions','<3 Pixels','>3 Pixels','Track Damage','Chip Faults','B.E.R','Total Modules Repaired']],
-    body: [[totSess, totLt3, totGt3, totTrack, totChip, totBer, totQty]],
-    theme: 'grid',
-    headStyles: tblHeadStyles,
-    bodyStyles: Object.assign({}, tblBodyStyles, {halign:'center', fontSize:9, fontStyle:'bold'}),
-    columnStyles: {6:{textColor:GREEN}},
-    margin: {left:M, right:M},
-    tableLineColor: BORDER,
-    tableLineWidth: 0.3,
+    startY:y,
+    head:[['Technician','Role','Jobs','Sessions','Total Time','<3 Px','>3 Px','Track','Chip','BER','Modules']],
+    body:masterRows,
+    theme:'grid',
+    headStyles:{fillColor:BG_BAND,textColor:CYAN,fontSize:7,fontStyle:'bold',lineColor:BORDER,lineWidth:0.3},
+    bodyStyles:{fillColor:BG_PAGE,textColor:TXT_PRI,fontSize:8,lineColor:BORDER,lineWidth:0.2},
+    alternateRowStyles:{fillColor:BG_BAND},
+    columnStyles:{
+      0:{fontStyle:'bold'},
+      4:{textColor:AMBER,halign:'center'},
+      5:{textColor:AMBER,halign:'center'},
+      6:{textColor:RED,halign:'center'},
+      7:{textColor:ORANGE,halign:'center'},
+      8:{textColor:PURPLE,halign:'center'},
+      9:{textColor:RED,halign:'center'},
+      10:{textColor:GREEN,fontStyle:'bold',halign:'center',fontSize:9}
+    },
+    didParseCell:function(data){
+      if(data.row.index===masterRows.length-1){
+        data.cell.styles.fillColor=BG_HDR;
+        data.cell.styles.textColor=GREEN;
+        data.cell.styles.fontStyle='bold';
+      }
+    },
+    margin:{left:M,right:M},
+    tableLineColor:BORDER,tableLineWidth:0.3
   });
-  y = doc.lastAutoTable.finalY + 10;
 
-  // -- PER-TECHNICIAN BREAKDOWN ------------------------------------------
-  var byUser={};
-  logs.forEach(function(wl){if(!byUser[wl.user_id])byUser[wl.user_id]=[];byUser[wl.user_id].push(wl);});
-
+  // ---- PER-TECHNICIAN PAGES ----
   Object.keys(byUser).forEach(function(uid){
     var u=allUsers.find(function(x){return x.id===uid;});
-    var ulogs=byUser[uid];
-    var uSecs=0,uLt3=0,uGt3=0,uTrack=0,uChip=0,uBer=0,uQty=0;
-    ulogs.forEach(function(wl){
-      uLt3+=wl.lt3;uGt3+=wl.gt3;uTrack+=wl.track;uChip+=wl.chip;uBer+=wl.ber;uQty+=wl.qty;
-      if(wl.start_time&&wl.end_time)uSecs+=Math.floor((new Date(wl.end_time)-new Date(wl.start_time))/1000);
+    var uJobs=byUser[uid];
+
+    // Compute tech totals
+    var uSecs=0,uLt3=0,uGt3=0,uTrack=0,uChip=0,uBer=0,uQty=0,uSess=0;
+    Object.keys(uJobs).forEach(function(jid){
+      uJobs[jid].forEach(function(wl){
+        uLt3+=wl.lt3;uGt3+=wl.gt3;uTrack+=wl.track;uChip+=wl.chip;uBer+=wl.ber;uQty+=wl.qty;uSess++;
+        if(wl.start_time&&wl.end_time)uSecs+=Math.floor((new Date(wl.end_time)-new Date(wl.start_time))/1000);
+      });
     });
 
-    var name=(u?u.name:'Unknown User');
-    var role=(u?u.role:'');
-    var subtitle=role+' \u00b7 '+ulogs.length+' session'+(ulogs.length!==1?'s':'')+' \u00b7 Work time: '+fmtDur(uSecs);
+    newPage();
+    var py=16;
 
-    if(y > 165){newPage();y=20;}
-    sectionHeader(name.toUpperCase(), subtitle);
+    // Technician header band
+    doc.setFillColor.apply(doc,BG_HDR);
+    doc.rect(M,py,W-M*2,12,'F');
+    doc.setFillColor.apply(doc,CYAN);
+    doc.rect(M,py,2.5,12,'F');
 
-    // Mini stat pills for this tech
-    var uStats=[
-      {l:'<3 Px',v:uLt3,c:AMBER},{l:'>3 Px',v:uGt3,c:RED},
+    // Avatar circle
+    doc.setFillColor.apply(doc,[0,212,255,30]);
+    doc.circle(M+11,py+6,5,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(6);doc.setTextColor.apply(doc,CYAN);
+    var init=u?(u.initials||(u.name.split(' ').map(function(w){return w[0];}).join('').slice(0,2).toUpperCase())):'?';
+    doc.text(init,M+11,py+7.5,{align:'center'});
+
+    // Name + role
+    doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor.apply(doc,TXT_PRI);
+    doc.text(u?u.name:'Unknown Technician',M+20,py+6.5);
+    doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor.apply(doc,TXT_MUT);
+    doc.text((u?u.role:'')+' | '+uSess+' sessions | '+fmtDur(uSecs)+' | '+Object.keys(uJobs).length+' jobs | '+uQty+' modules repaired',M+20,py+10.5);
+    py+=15;
+
+    // Stat pills for this tech
+    var pills=[
+      {l:'<3 Pixels',v:uLt3,c:AMBER},{l:'>3 Pixels',v:uGt3,c:RED},
       {l:'Track',v:uTrack,c:ORANGE},{l:'Chip',v:uChip,c:PURPLE},
-      {l:'BER',v:uBer,c:RED},{l:'Total Qty',v:uQty,c:GREEN}
+      {l:'BER',v:uBer,c:RED},{l:'Total Time',v:fmtDur(uSecs),c:CYAN,small:true},{l:'Modules',v:uQty,c:GREEN}
     ];
-    var pillW=(W-M*2-5)/uStats.length, pillH=10;
-    uStats.forEach(function(s,i){
-      var px=M+i*(pillW+1);
-      doc.setFillColor.apply(doc, BG_CARD);
-      doc.roundedRect(px, y, pillW, pillH, 1, 1, 'F');
-      doc.setFont('helvetica','bold');
-      doc.setFontSize(9);
-      doc.setTextColor.apply(doc, s.c);
-      doc.text(String(s.v), px+pillW/2, y+5.5, {align:'center'});
-      doc.setFont('helvetica','normal');
-      doc.setFontSize(5);
-      doc.setTextColor.apply(doc, TXT_MUT);
-      doc.text(s.l.toUpperCase(), px+pillW/2, y+9, {align:'center'});
+    var pw=(W-M*2-6)/pills.length,ph=13;
+    pills.forEach(function(s,i){
+      var px=M+i*(pw+1);
+      doc.setFillColor.apply(doc,BG_BAND);
+      doc.roundedRect(px,py,pw,ph,1,1,'F');
+      doc.setFont('helvetica','bold');doc.setFontSize(s.small?7:9.5);doc.setTextColor.apply(doc,s.c);
+      doc.text(String(s.v),px+pw/2,py+7.5,{align:'center'});
+      doc.setFont('helvetica','normal');doc.setFontSize(4.8);doc.setTextColor.apply(doc,TXT_MUT);
+      doc.text(s.l.toUpperCase(),px+pw/2,py+11.5,{align:'center'});
     });
-    y += pillH + 5;
+    py+=ph+6;
 
-    if(y > 168){newPage();y=20;}
+    // Section label
+    doc.setFillColor.apply(doc,BG_BAND);
+    doc.rect(M,py,W-M*2,8,'F');
+    doc.setFillColor.apply(doc,CYAN);
+    doc.rect(M,py,2.5,8,'F');
+    doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor.apply(doc,TXT_MUT);
+    doc.text('JOB BREAKDOWN - one row per job, all sessions combined',M+6,py+5);
+    py+=11;
 
-    // Session detail table
-    var rows = ulogs.map(function(wl,idx2){
-      var j2=allJobs.find(function(x){return x.id===wl.job_id;});
-      var dur='-';
-      if(wl.start_time&&wl.end_time)dur=fmtDur(Math.floor((new Date(wl.end_time)-new Date(wl.start_time))/1000));
+    // Job breakdown table for this tech
+    var jobRows=Object.keys(uJobs).map(function(jid){
+      var jlogs=uJobs[jid];
+      var job=allJobs.find(function(x){return x.id===jid;});
+      var jSecs=0,jLt3=0,jGt3=0,jTrack=0,jChip=0,jBer=0,jQty=0;
+      jlogs.forEach(function(wl){
+        jLt3+=wl.lt3;jGt3+=wl.gt3;jTrack+=wl.track;jChip+=wl.chip;jBer+=wl.ber;jQty+=wl.qty;
+        if(wl.start_time&&wl.end_time)jSecs+=Math.floor((new Date(wl.end_time)-new Date(wl.start_time))/1000);
+      });
       return [
-        j2?j2.job_number:'?',
-        j2?j2.client:'',
-        wl.start_time?wl.start_time.slice(0,16).replace('T',' '):'-',
-        wl.end_time?wl.end_time.slice(0,16).replace('T',' '):'-',
-        dur,
-        wl.lt3, wl.gt3, wl.track, wl.chip, wl.ber,
-        wl.qty,
-        (wl.notes||'-').slice(0,40)
+        job?job.job_number:'?',
+        job?job.job_name:'Unknown',
+        job?job.client:'-',
+        job&&job.pitch?job.pitch:'-',
+        String(jlogs.length),
+        fmtDur(jSecs),
+        String(jLt3),String(jGt3),String(jTrack),String(jChip),String(jBer),String(jQty)
       ];
     });
-
+    // Sort by time spent desc
+    jobRows.sort(function(a,b){
+      var sa=a[5],sb=b[5];
+      return sb.localeCompare(sa);
+    });
     // Totals row
-    rows.push(['TOTALS','','','','', uLt3,uGt3,uTrack,uChip,uBer, uQty,'']);
+    jobRows.push(['TOTAL','','','',String(uSess),fmtDur(uSecs),String(uLt3),String(uGt3),String(uTrack),String(uChip),String(uBer),String(uQty)]);
 
     doc.autoTable({
-      startY: y,
-      head: [['Job #','Client','Start','End','Duration','<3 Px','>3 Px','Track','Chip','BER','Qty','Notes']],
-      body: rows,
-      theme: 'grid',
-      headStyles: tblHeadStyles,
-      bodyStyles: tblBodyStyles,
-      alternateRowStyles: tblAltStyles,
-      footStyles: tblFootStyles,
-      columnStyles: {
-        0:{fontStyle:'bold', textColor:CYAN, halign:'center'},
-        4:{halign:'center', textColor:AMBER},
-        5:{halign:'center', textColor:AMBER},
-        6:{halign:'center', textColor:RED},
-        7:{halign:'center', textColor:ORANGE},
-        8:{halign:'center', textColor:PURPLE},
-        9:{halign:'center', textColor:RED},
-        10:{halign:'center', textColor:GREEN, fontStyle:'bold'},
+      startY:py,
+      head:[['Job #','Job Name','Client','Pitch','Sessions','Time Spent','<3 Px','>3 Px','Track','Chip','BER','Modules']],
+      body:jobRows,
+      theme:'grid',
+      headStyles:{fillColor:BG_BAND,textColor:CYAN,fontSize:6.5,fontStyle:'bold',lineColor:BORDER,lineWidth:0.3,halign:'center'},
+      bodyStyles:{fillColor:BG_PAGE,textColor:TXT_PRI,fontSize:7.5,lineColor:BORDER,lineWidth:0.2},
+      alternateRowStyles:{fillColor:BG_BAND},
+      columnStyles:{
+        0:{fontStyle:'bold',textColor:CYAN},
+        5:{textColor:AMBER,fontStyle:'bold',halign:'center'},
+        6:{textColor:AMBER,halign:'center'},
+        7:{textColor:RED,halign:'center'},
+        8:{textColor:ORANGE,halign:'center'},
+        9:{textColor:PURPLE,halign:'center'},
+        10:{textColor:RED,halign:'center'},
+        11:{textColor:GREEN,fontStyle:'bold',halign:'center',fontSize:9}
       },
-      // Style the TOTALS row
-      didParseCell: function(data){
-        if(data.row.index===rows.length-1){
-          data.cell.styles.fillColor=BG_HEADER;
+      didParseCell:function(data){
+        if(data.row.index===jobRows.length-1){
+          data.cell.styles.fillColor=BG_HDR;
           data.cell.styles.textColor=GREEN;
           data.cell.styles.fontStyle='bold';
-          data.cell.styles.fontSize=7;
+          data.cell.styles.fontSize=8;
         }
       },
-      margin: {left:M, right:M},
-      tableLineColor: BORDER,
-      tableLineWidth: 0.3,
+      margin:{left:M,right:M},
+      tableLineColor:BORDER,tableLineWidth:0.3
     });
-    y = doc.lastAutoTable.finalY + 10;
   });
 
-  // -- FOOTER on every page ----------------------------------------------
-  var pageCount = doc.getNumberOfPages();
+  // Footer on every page
+  var pageCount=doc.getNumberOfPages();
   for(var p=1;p<=pageCount;p++){
     doc.setPage(p);
-    // Footer band
-    doc.setFillColor.apply(doc, BG_HEADER);
-    doc.rect(0, H-8, W, 8, 'F');
-    doc.setFillColor.apply(doc, CYAN);
-    doc.rect(0, H-8, W, 0.5, 'F');
-    doc.setFont('helvetica','normal');
-    doc.setFontSize(6);
-    doc.setTextColor.apply(doc, TXT_MUT);
-    doc.text('EYECOM LED SOLUTIONS - REPAIR CENTRE  |  Confidential', M, H-3);
-    doc.text('Page '+p+' of '+pageCount, W-M, H-3, {align:'right'});
+    doc.setFillColor.apply(doc,BG_HDR);
+    doc.rect(0,H-8,W,8,'F');
+    doc.setFillColor.apply(doc,CYAN);
+    doc.rect(0,H-8,W,0.5,'F');
+    doc.setFont('helvetica','normal');doc.setFontSize(6);doc.setTextColor.apply(doc,TXT_MUT);
+    doc.text('EYECOM LED SOLUTIONS - Work Log Summary | Per-Technician | Confidential',M,H-3);
+    doc.text('Page '+p+' of '+pageCount,W-M,H-3,{align:'right'});
   }
 
-  doc.save('eyecom-worklogs-'+from+'-to-'+to+'.pdf');
-  toast('PDF report downloaded!','success');
+  doc.save('eyecom-worklogs-summary-'+from+'-to-'+to+'.pdf');
+  toast('Summary PDF downloaded!','success');
 }
 
 // ==============================================
@@ -1914,8 +2030,7 @@ async function renderStockPage(){
 
   if(!items.length){
     document.getElementById('stock-content').innerHTML='<div class="empty"><div class="eico">&#128230;</div><p class="etxt">No stock items found</p></div>';
-    updateStockNB();
-    return;
+    updateStockNB();return;
   }
 
   var canEdit=CU&&(CU.is_admin||CU.is_senior);
@@ -1944,8 +2059,8 @@ async function renderStockPage(){
         '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
           '<span class="bdg '+stockStatusClass(s.status)+'">'+stockStatusLabel(s.status)+'</span>'+
           (canEdit?'<button class="btn bcyan bsm" onclick="openDispatchFor(\''+s.id+'\')">&#8599; Dispatch</button>':'')+
-  '<button class="btn bout bsm" onclick="openStockDetail(\''+s.id+'\')">&#128269; Detail</button>'+
-  '</div>'+
+          '<button class="btn bout bsm" onclick="openStockDetail(\''+s.id+'\')">&#128269; Detail</button>'+
+        '</div>'+
       '</div>'+
       '<div class="stock-card-body">'+
         '<div class="stock-meta">'+
@@ -2118,6 +2233,7 @@ async function openStockDetail(stockId){
   var barColor=s.status==='fully_dispatched'?'var(--cr)':s.status==='partially_dispatched'?'var(--cy)':'var(--cg)';
 
   var canEdit=CU&&(CU.is_admin||CU.is_senior);
+  var canEdit=CU&&(CU.is_admin||CU.is_senior);
   document.getElementById('m-stock-detail-ttl').textContent=s.batch+' - '+s.job_name;
   document.getElementById('m-stock-detail-body').innerHTML=
     '<div class="stock-meta" style="margin-bottom:16px">'+
@@ -2193,6 +2309,7 @@ function hardReset(){
   // Force reload bypassing cache
   setTimeout(function(){ window.location.reload(true); }, 300);
 }
+
 
 // ==============================================
 //  DAMAGE LOG SYSTEM
@@ -2474,57 +2591,127 @@ function openLightbox(url) {
 }
 
 // -- QR/Barcode Scanner ------------------------
+var _zxingReader = null;
+
 async function openScanner(targetInputId) {
   _scannerTargetId = targetInputId;
   var overlay = document.getElementById('scan-overlay');
   overlay.classList.add('open');
+  var video = document.getElementById('scan-video');
+
+  // Stop any existing reader
+  closeScanner(false);
+
   try {
-    _scannerStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width:{ideal:1280}, height:{ideal:720} }
-    });
-    var video = document.getElementById('scan-video');
-    video.srcObject = _scannerStream;
-    // Try to use BarcodeDetector API if available
-    if ('BarcodeDetector' in window) {
-      var detector = new BarcodeDetector({formats:['qr_code','ean_13','ean_8','code_128','code_39','data_matrix','upc_a','upc_e','pdf417','aztec','codabar']});
-      _scannerInterval = setInterval(async function() {
-        try {
-          var barcodes = await detector.detect(video);
-          if (barcodes.length > 0) {
-            var val = barcodes[0].rawValue;
-            closeScanner();
-            var inp = document.getElementById(_scannerTargetId);
-            if (inp) { inp.value = val; inp.focus(); }
-            toast('Scanned: ' + val, 'success');
-          }
-        } catch(e) {}
-      }, 300);
-    } else {
-      // Fallback - just keep camera open and show manual entry hint
-      toast('Auto-scan not supported. Position code and manually enter value.', 'info');
+    // Check if ZXing loaded
+    if (typeof ZXingBrowser === 'undefined') {
+      toast('Scanner library not loaded. Please refresh and try again.', 'error');
+      closeScanner(false);
+      return;
     }
+
+    // Use ZXingBrowser which works on ALL browsers including iOS Safari
+    var hints = new Map();
+    var formats = [
+      ZXingBrowser.BarcodeFormat.QR_CODE,
+      ZXingBrowser.BarcodeFormat.CODE_128,
+      ZXingBrowser.BarcodeFormat.CODE_39,
+      ZXingBrowser.BarcodeFormat.EAN_13,
+      ZXingBrowser.BarcodeFormat.EAN_8,
+      ZXingBrowser.BarcodeFormat.UPC_A,
+      ZXingBrowser.BarcodeFormat.UPC_E,
+      ZXingBrowser.BarcodeFormat.DATA_MATRIX,
+      ZXingBrowser.BarcodeFormat.PDF_417,
+      ZXingBrowser.BarcodeFormat.AZTEC,
+      ZXingBrowser.BarcodeFormat.ITF,
+      ZXingBrowser.BarcodeFormat.CODABAR
+    ];
+    hints.set(ZXingBrowser.DecodeHintType.POSSIBLE_FORMATS, formats);
+    hints.set(ZXingBrowser.DecodeHintType.TRY_HARDER, true);
+
+    _zxingReader = new ZXingBrowser.BrowserMultiFormatReader(hints, {
+      delayBetweenScanAttempts: 150,
+      delayBetweenScanSuccess: 500
+    });
+
+    // Get available video devices - prefer back camera
+    var devices = await ZXingBrowser.BrowserCodeReader.listVideoInputDevices();
+    var deviceId = undefined;
+    if (devices && devices.length > 0) {
+      // Prefer back/environment facing camera
+      var backCam = devices.find(function(d) {
+        return d.label.toLowerCase().includes('back') ||
+               d.label.toLowerCase().includes('rear') ||
+               d.label.toLowerCase().includes('environment');
+      });
+      deviceId = backCam ? backCam.deviceId : devices[devices.length - 1].deviceId;
+    }
+
+    document.getElementById('scan-status').textContent = 'Camera starting...';
+
+    await _zxingReader.decodeFromVideoDevice(deviceId, video, function(result, err, controls) {
+      if (result) {
+        var val = result.getText();
+        closeScanner(false);
+        var inp = document.getElementById(_scannerTargetId);
+        if (inp) { inp.value = val; inp.focus(); }
+        toast('Scanned: ' + val, 'success');
+      }
+      if (err && !(err instanceof ZXingBrowser.NotFoundException)) {
+        console.warn('Scanner error:', err);
+      }
+      // Update status
+      var statusEl = document.getElementById('scan-status');
+      if (statusEl) statusEl.textContent = 'Scanning... point camera at code';
+    });
+
   } catch(e) {
-    toast('Camera access denied or unavailable', 'error');
-    closeScanner();
+    console.error('Scanner failed:', e);
+    if (e.name === 'NotAllowedError') {
+      toast('Camera permission denied. Please allow camera access and try again.', 'error');
+    } else if (e.name === 'NotFoundError') {
+      toast('No camera found on this device.', 'error');
+    } else {
+      toast('Scanner error: ' + e.message, 'error');
+    }
+    closeScanner(false);
   }
 }
 
-function closeScanner() {
+function closeScanner(showOverlay) {
+  if (_zxingReader) {
+    try { _zxingReader.reset(); } catch(e) {}
+    _zxingReader = null;
+  }
+  if (_scannerStream) {
+    _scannerStream.getTracks().forEach(function(t){ t.stop(); });
+    _scannerStream = null;
+  }
   if (_scannerInterval) { clearInterval(_scannerInterval); _scannerInterval = null; }
-  if (_scannerStream) { _scannerStream.getTracks().forEach(function(t){ t.stop(); }); _scannerStream = null; }
   _torchOn = false;
-  document.getElementById('scan-overlay').classList.remove('open');
+  var tb = document.getElementById('torch-btn');
+  if (tb) tb.style.color = '';
+  if (showOverlay !== false) {
+    document.getElementById('scan-overlay').classList.remove('open');
+  } else {
+    document.getElementById('scan-overlay').classList.remove('open');
+  }
 }
 
 async function toggleTorch() {
-  if (!_scannerStream) return;
-  var track = _scannerStream.getVideoTracks()[0];
+  // Get video track from active stream
+  var video = document.getElementById('scan-video');
+  if (!video || !video.srcObject) return;
+  var track = video.srcObject.getVideoTracks()[0];
   if (!track) return;
   try {
     _torchOn = !_torchOn;
-    await track.applyConstraints({ advanced:[{ torch: _torchOn }] });
-    document.getElementById('torch-btn').style.color = _torchOn ? 'var(--cy)' : '';
-  } catch(e) { toast('Torch not supported on this device', 'info'); }
+    await track.applyConstraints({ advanced: [{ torch: _torchOn }] });
+    var tb = document.getElementById('torch-btn');
+    if (tb) tb.style.color = _torchOn ? 'var(--cy)' : '';
+  } catch(e) {
+    toast('Torch not available on this device', 'info');
+  }
 }
 
 // -- PDF Reports -------------------------------
@@ -2699,6 +2886,16 @@ showPage = function(n) {
   _origShowPageDmg(n);
   if (n === 'damage') renderDamagePage();
 };
+
+
+function scanManualEntry() {
+  var val = (document.getElementById('scan-manual-input').value || '').trim();
+  if (!val) { toast('Please enter a code first', 'error'); return; }
+  closeScanner();
+  var inp = document.getElementById(_scannerTargetId);
+  if (inp) { inp.value = val; inp.focus(); }
+  toast('Code entered: ' + val, 'success');
+}
 
 </script>
 </body>
