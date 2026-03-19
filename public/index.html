@@ -274,6 +274,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
       <div class="lerr" id="lerr">Invalid credentials. Please try again.</div>
       <div class="lconn loading" id="conn-status"><span class="spin"></span>Connecting to database...</div>
       <span class="forgot-link" onclick="toggleForgot()">Forgot your password?</span>
+      <span class="forgot-link" style="font-size:11px;opacity:.5;margin-top:4px" onclick="hardReset()">Having trouble? Clear app cache</span>
     </div>
 
     <!-- Forgot password flow -->
@@ -1942,6 +1943,31 @@ setupUI=async function(){
   await loadStock();
   updateStockNB();
 };
+
+
+// ===============================
+//  HARD RESET - clears all caches
+// ===============================
+function hardReset(){
+  if(!confirm('This will clear all cached app data and reload. Continue?')) return;
+  // Clear localStorage and sessionStorage
+  try { localStorage.clear(); } catch(e) {}
+  try { sessionStorage.clear(); } catch(e) {}
+  // Unregister any service workers
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.getRegistrations().then(function(regs){
+      regs.forEach(function(reg){ reg.unregister(); });
+    });
+  }
+  // Clear all caches
+  if('caches' in window){
+    caches.keys().then(function(keys){
+      keys.forEach(function(key){ caches.delete(key); });
+    });
+  }
+  // Force reload bypassing cache
+  setTimeout(function(){ window.location.reload(true); }, 300);
+}
 
 </script>
 </body>
