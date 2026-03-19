@@ -823,7 +823,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
 <div class="mover" id="m-damage">
   <div class="modal lg">
     <div class="mhd">
-      <div class="mttl">Log Damaged Module</div>
+      <div class="mttl" id="dmg-modal-title">Log Damaged Module</div>
+      <input type="hidden" id="dmg-edit-id" value="">
       <button class="mcls" onclick="cm('m-damage')">&#215;</button>
     </div>
     <div class="fgrid">
@@ -896,6 +897,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
     <div class="mft">
       <button class="btn bout" onclick="cm('m-damage')">Cancel</button>
       <button class="btn bcyan" id="dmg-submit-btn" onclick="submitDamageLog()">&#10003; Log Damage</button>
+      <span id="dmg-edit-note" style="display:none;font-size:11px;color:var(--tm);margin-left:8px">Editing existing entry</span>
     </div>
   </div>
 </div>
@@ -2060,7 +2062,7 @@ async function renderStockPage(){
         '<div class="stock-bar-wrap"><div class="stock-bar" style="width:'+pct+'%;background:'+barColor+'"></div></div>'+
         '<div style="font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--tm);margin-bottom:6px">Recent Dispatches</div>'+
         dispRows+
-        (allDispatches.filter(function(d){return d.stock_id===s.id;}).length>3?'<div style="font-size:12px;color:var(--c1);cursor:pointer;margin-top:6px" onclick="openStockDetail(\''+s.id+'\')">View all dispatches...</div>':'')+
+        (allDispatches.filter(function(d){return d.stock_id===s.id;}).length>3?'<div style="font-size:12px;color:var(--c1);cursor:pointer;margin-top:6px" onclick="openStockDetail(\''+s.id+'\')">View all dispatches...</div>':'')+ 
       '</div>'+
     '</div>';
   }).join('');
@@ -2370,6 +2372,7 @@ async function renderDamagePage() {
         '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
           '<span class="bdg ' + sevClass + '">' + d.severity + '</span>' +
           (job ? '<span class="chip">&#128196; ' + job.job_number + '</span>' : '') +
+          '<button class="btn bcyan bsm" onclick="openEditDamage(\'' + d.id + '\')">&#9998; Edit</button>' +
           '<button class="btn bout bsm" onclick="openDamageDetail(\'' + d.id + '\')">&#128269; Detail</button>' +
           (CU&&(CU.is_admin||CU.is_senior) ? '<button class="btn bdanger bsm" onclick="deleteDamageLog(\'' + d.id + '\')">&#128465;</button>' : '') +
         '</div>' +
@@ -2399,7 +2402,12 @@ function escHtml(s) {
 
 // -- Open log damage modal ---------------------
 async function openLogDamage() {
-  // Reset form
+  // Reset to NEW mode
+  document.getElementById('dmg-edit-id').value = '';
+  document.getElementById('dmg-modal-title').textContent = 'Log Damaged Module';
+  document.getElementById('dmg-submit-btn').innerHTML = '&#10003; Log Damage';
+  document.getElementById('dmg-edit-note').style.display = 'none';
+
   ['dmg-serial','dmg-code','dmg-notes'].forEach(function(id){ document.getElementById(id).value = ''; });
   document.querySelectorAll('.dtype-chip').forEach(function(c){ c.classList.remove('selected'); });
   _dmgSeverity = 'Medium';
@@ -2414,7 +2422,6 @@ async function openLogDamage() {
   document.getElementById('dmg-photo-clear-row').style.display = 'none';
   document.getElementById('dmg-photo-input').value = '';
 
-  // Populate job select
   var js2 = document.getElementById('dmg-job');
   js2.innerHTML = '<option value="">No job reference</option>' +
     allJobs.map(function(j){ return '<option value="'+j.id+'">'+j.job_number+' - '+j.job_name+' ('+j.client+')</option>'; }).join('');
@@ -2473,55 +2480,146 @@ function clearDmgPhoto() {
 }
 
 // -- Submit damage log -------------------------
-async function submitDamageLog() {
-  var serial = document.getElementById('dmg-serial').value.trim();
-  if (!serial) { toast('Serial number is required','error'); return; }
+async function openEditDamage(id) {
+  var d = allDamageLogs.find(function(x){ return x.id === id; });
+  if (!d) { toast('Entry not found', 'error'); return; }
+
+  // Switch modal to EDIT mode
+  document.getElementById('dmg-edit-id').value = id;
+  document.getElementById('dmg-modal-title').textContent = 'Edit Damage Entry';
+  document.getElementById('dmg-submit-btn').innerHTML = '&#10003; Save Changes';
+  document.getElementById('dmg-edit-note').style.display = 'inline';
+
+  // Populate fields
+  document.getElementById('dmg-serial').value = d.serial_number || '';
+  document.getElementById('dmg-code').value   = d.module_code   || '';
+  document.getElementById('dmg-notes').value  = d.damage_notes  || '';
+
+  // Damage type chips
+  document.querySelectorAll('.dtype-chip').forEach(function(c){
+    var type = c.getAttribute('data-type');
+    c.classList.toggle('selected', (d.damage_types || []).indexOf(type) >= 0);
+  });
+
+  // Severity
+  _dmgSeverity = d.severity || 'Medium';
+  document.querySelectorAll('.sev-pill').forEach(function(p){
+    p.classList.toggle('active', p.getAttribute('data-sev') === _dmgSeverity);
+  });
+
+  // Job reference
+  var js2 = document.getElementById('dmg-job');
+  js2.innerHTML = '<option value="">No job reference</option>' +
+    allJobs.map(function(j){ return '<option value="'+j.id+'">'+j.job_number+' - '+j.job_name+' ('+j.client+')</option>'; }).join('');
+  js2.value = d.job_id || '';
+
+  // Existing photo
+  _dmgPhotoFile = null;
+  _dmgPhotoDataUrl = null;
+  if (d.image_url) {
+    document.getElementById('dmg-photo-preview').src = d.image_url;
+    document.getElementById('dmg-photo-preview').style.display = '';
+    document.getElementById('dmg-drop-zone').style.display = 'none';
+    document.getElementById('dmg-photo-name').textContent = d.image_name || 'existing photo';
+    document.getElementById('dmg-photo-clear-row').style.display = 'flex';
+  } else {
+    document.getElementById('dmg-photo-preview').style.display = 'none';
+    document.getElementById('dmg-photo-preview').src = '';
+    document.getElementById('dmg-drop-zone').style.display = '';
+    document.getElementById('dmg-photo-clear-row').style.display = 'none';
+  }
+  document.getElementById('dmg-photo-input').value = '';
+
+  om('m-damage');
+}
+
+function submitDamageLog() {
+  var editId  = document.getElementById('dmg-edit-id').value.trim();
+  var isEdit  = editId.length > 0;
+  var serial  = document.getElementById('dmg-serial').value.trim();
+  if (!serial) { toast('Serial number is required', 'error'); return; }
   var types = Array.from(document.querySelectorAll('.dtype-chip.selected')).map(function(el){ return el.getAttribute('data-type'); });
-  if (!types.length) { toast('Select at least one damage type','error'); return; }
+  if (!types.length) { toast('Select at least one damage type', 'error'); return; }
 
   var btn = document.getElementById('dmg-submit-btn');
-  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Saving...';
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span>' + (isEdit ? 'Saving...' : 'Logging...');
 
-  try {
-    var imageUrl = null;
-    var imageName = null;
+  (async function() {
+    try {
+      var imageUrl  = null;
+      var imageName = null;
 
-    // Upload photo to Supabase Storage if provided
-    if (_dmgPhotoFile) {
-      var ext = _dmgPhotoFile.name.split('.').pop();
-      imageName = 'dmg-' + Date.now() + '-' + serial.replace(/[^a-zA-Z0-9]/g,'_') + '.' + ext;
-      var{data:upData, error:upErr} = await sb.storage.from('damage-images').upload(imageName, _dmgPhotoFile, {
-        cacheControl: '3600', upsert: false, contentType: _dmgPhotoFile.type
-      });
-      if (upErr) {
-        toast('Photo upload failed: ' + upErr.message, 'error');
-      } else {
-        var{data:urlData} = sb.storage.from('damage-images').getPublicUrl(imageName);
-        imageUrl = urlData.publicUrl;
+      // If editing, start with existing image values
+      if (isEdit) {
+        var existing = allDamageLogs.find(function(x){ return x.id === editId; });
+        if (existing) { imageUrl = existing.image_url; imageName = existing.image_name; }
       }
+
+      // New photo selected - upload it
+      if (_dmgPhotoFile) {
+        // Delete old image if replacing
+        if (isEdit && imageName) {
+          await sb.storage.from('damage-images').remove([imageName]);
+        }
+        var ext = _dmgPhotoFile.name.split('.').pop();
+        imageName = 'dmg-' + Date.now() + '-' + serial.replace(/[^a-zA-Z0-9]/g,'_') + '.' + ext;
+        var upResult = await sb.storage.from('damage-images').upload(imageName, _dmgPhotoFile, {
+          cacheControl: '3600', upsert: false, contentType: _dmgPhotoFile.type
+        });
+        if (upResult.error) {
+          toast('Photo upload failed: ' + upResult.error.message, 'error');
+          imageName = isEdit ? (allDamageLogs.find(function(x){return x.id===editId;})||{}).image_name : null;
+          imageUrl  = isEdit ? (allDamageLogs.find(function(x){return x.id===editId;})||{}).image_url  : null;
+        } else {
+          var urlResult = sb.storage.from('damage-images').getPublicUrl(imageName);
+          imageUrl = urlResult.data.publicUrl;
+        }
+      }
+
+      // Photo was cleared by user (preview hidden, drop zone visible, no new file)
+      var dropZoneVisible = document.getElementById('dmg-drop-zone').style.display !== 'none';
+      if (!_dmgPhotoFile && dropZoneVisible && isEdit) {
+        var existingEntry = allDamageLogs.find(function(x){ return x.id === editId; });
+        if (existingEntry && existingEntry.image_name) {
+          await sb.storage.from('damage-images').remove([existingEntry.image_name]);
+        }
+        imageUrl  = null;
+        imageName = null;
+      }
+
+      var payload = {
+        serial_number: serial,
+        module_code:   document.getElementById('dmg-code').value.trim()  || null,
+        job_id:        document.getElementById('dmg-job').value           || null,
+        damage_types:  types,
+        severity:      _dmgSeverity,
+        damage_notes:  document.getElementById('dmg-notes').value.trim() || null,
+        image_url:     imageUrl,
+        image_name:    imageName,
+        updated_at:    new Date().toISOString()
+      };
+
+      var result;
+      if (isEdit) {
+        result = await sb.from('rc_damage_logs').update(payload).eq('id', editId);
+      } else {
+        payload.logged_by = CU.id;
+        result = await sb.from('rc_damage_logs').insert(payload);
+      }
+
+      if (result.error) { toast('Error: ' + result.error.message, 'error'); return; }
+
+      await loadDamageLogs();
+      cm('m-damage');
+      toast(isEdit ? 'Entry updated successfully!' : 'Damage logged successfully!', 'success');
+      if (document.getElementById('page-damage').classList.contains('active')) renderDamagePage();
+
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '&#10003; ' + (isEdit ? 'Save Changes' : 'Log Damage');
     }
-
-    var{error} = await sb.from('rc_damage_logs').insert({
-      serial_number: serial,
-      module_code:   document.getElementById('dmg-code').value.trim() || null,
-      job_id:        document.getElementById('dmg-job').value || null,
-      damage_types:  types,
-      severity:      _dmgSeverity,
-      damage_notes:  document.getElementById('dmg-notes').value.trim() || null,
-      image_url:     imageUrl,
-      image_name:    imageName,
-      logged_by:     CU.id
-    });
-
-    if (error) { toast('Error: ' + error.message, 'error'); return; }
-    await loadDamageLogs();
-    cm('m-damage');
-    toast('Damage logged successfully!', 'success');
-    if (document.getElementById('page-damage').classList.contains('active')) renderDamagePage();
-
-  } finally {
-    btn.disabled = false; btn.textContent = '\u2713 Log Damage';
-  }
+  })();
 }
 
 // -- Delete damage log -------------------------
