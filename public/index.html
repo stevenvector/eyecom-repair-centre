@@ -320,6 +320,15 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
 .toggle-sw input:checked+.slider:before{transform:translateX(16px);background:var(--c1)}
 .perm-section-title{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tm);margin:14px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--bdr)}
 
+
+/* Prog tab active state */
+.prog-tab.active{color:var(--c1)!important;border-bottom-color:var(--c1)!important}
+.prog-tab:hover{color:var(--tp)!important}
+/* Firmware version row */
+.fw-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bgc);border:1px solid var(--bdr);border-radius:8px;margin-bottom:6px;flex-wrap:wrap;gap:8px}
+.fw-version-badge{font-family:Rajdhani,sans-serif;font-size:15px;font-weight:700;color:var(--c1)}
+.fw-latest-badge{background:rgba(0,255,136,.12);color:var(--cg);border:1px solid rgba(0,255,136,.25);padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;letter-spacing:.5px}
+
 </style>
 </head>
 <body>
@@ -520,12 +529,24 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
           <div class="pt">Programming</div>
           <div style="font-size:12px;color:var(--tm);margin-top:2px" id="prog-summary-line">Loading...</div>
         </div>
-        <div id="prog-admin-btns" style="display:none">
-          <button class="btn bcyan" onclick="openAddProgramming()">+ Add Record</button>
+        <div id="prog-admin-btns" style="display:none;gap:8px;flex-wrap:wrap">
+          <button class="btn bout bsm" onclick="openReceiverCards()">&#128190; Receiver Cards</button>
+          <button class="btn bcyan" onclick="openAddProgramming()">+ Add Batch Record</button>
         </div>
       </div>
+      <!-- Tab bar -->
+      <div style="display:flex;gap:0;border-bottom:1px solid var(--bdr);margin-bottom:14px">
+        <button class="prog-tab active" id="tab-batch" onclick="switchProgTab('batch')" style="padding:9px 18px;background:none;border:none;border-bottom:2px solid var(--c1);color:var(--c1);font-family:Rajdhani,sans-serif;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:.5px">Batch Records</button>
+        <button class="prog-tab" id="tab-rcvr" onclick="switchProgTab('rcvr')" style="padding:9px 18px;background:none;border:none;border-bottom:2px solid transparent;color:var(--tm);font-family:Rajdhani,sans-serif;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:.5px">Receiver Cards</button>
+      </div>
       <div class="tb2">
-        <div class="sbox"><span class="sico">&#128269;</span><input type="text" id="prog-search" placeholder="Search batch, chip..." oninput="renderProgrammingPage()"></div>
+        <div class="sbox"><span class="sico">&#128269;</span><input type="text" id="prog-search" placeholder="Search..." oninput="renderProgrammingPage()"></div>
+        <select class="fsel" id="prog-pitch-filter" onchange="renderProgrammingPage()">
+          <option value="">All Pitches</option>
+          <option>P1.66</option><option>P1.86</option><option>P2</option><option>P2.5</option>
+          <option>P3</option><option>P4</option><option>P4.4</option><option>P4.81</option>
+          <option>P5</option><option>P10</option>
+        </select>
       </div>
       <div id="prog-content"></div>
     </div>
@@ -1027,12 +1048,30 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
         <input type="text" id="prog-batch" placeholder="e.g. B2024-001">
       </div>
       <div class="fg2">
+        <label>Pitch *</label>
+        <select id="prog-pitch">
+          <option value="">Select pitch...</option>
+          <option>P1.66</option><option>P1.86</option><option>P2</option><option>P2.5</option>
+          <option>P3</option><option>P4</option><option>P4.4</option><option>P4.81</option>
+          <option>P5</option><option>P10</option>
+        </select>
+      </div>
+      <div class="fg2">
         <label>Driver Chip *</label>
         <input type="text" id="prog-driver" placeholder="e.g. ICN2053">
       </div>
       <div class="fg2">
         <label>Decoder Chip *</label>
         <input type="text" id="prog-decoder" placeholder="e.g. FM6363">
+      </div>
+      <div class="fg2 full">
+        <label>Receiver Card</label>
+        <div style="display:flex;gap:8px;align-items:flex-end">
+          <select id="prog-rcvr-card" style="flex:1" class="fi">
+            <option value="">None / Not specified</option>
+          </select>
+          <button class="btn bout bsm" onclick="openAddReceiverCardInline()" style="white-space:nowrap">+ New Card</button>
+        </div>
       </div>
       <div class="fg2">
         <label>Notes</label>
@@ -1048,16 +1087,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
         <input type="file" id="prog-rcfgx-input" style="display:none" accept=".rcfgx,.xml,.cfg,.bin,.dat,*" onchange="progFileSelected(event,'rcfgx')">
         <div id="prog-rcfgx-existing" style="display:none;margin-top:6px;font-size:12px;color:var(--tm)"></div>
       </div>
-      <!-- Firmware File -->
-      <div class="fg2 full">
-        <label>Firmware File</label>
-        <div class="file-upload-zone" id="prog-fw-zone" onclick="document.getElementById('prog-fw-input').click()">
-          <div style="font-size:24px;margin-bottom:6px">&#128187;</div>
-          <div style="font-size:12px;color:var(--tm)" id="prog-fw-label">Click to upload firmware file</div>
-        </div>
-        <input type="file" id="prog-fw-input" style="display:none" onchange="progFileSelected(event,'firmware')">
-        <div id="prog-fw-existing" style="display:none;margin-top:6px;font-size:12px;color:var(--tm)"></div>
-      </div>
+
       <!-- Visibility -->
       <div class="fg2 full" id="prog-visibility-section">
         <label>Visibility</label>
@@ -1109,6 +1139,136 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
     <div class="mft" id="perm-footer" style="display:none">
       <button class="btn bout" onclick="cm('m-permissions')">Cancel</button>
       <button class="btn bcyan" onclick="savePermissions()">&#10003; Save Permissions</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Receiver Cards List Modal -->
+<div class="mover" id="m-receiver-cards">
+  <div class="modal xl">
+    <div class="mhd">
+      <div class="mttl">Receiver Cards Library</div>
+      <button class="mcls" onclick="cm('m-receiver-cards')">&#215;</button>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+      <button class="btn bcyan" onclick="openAddReceiverCard()">+ Add Receiver Card</button>
+    </div>
+    <div id="rcvr-cards-list"></div>
+  </div>
+</div>
+
+<!-- Add/Edit Receiver Card Modal -->
+<div class="mover" id="m-receiver-card-edit">
+  <div class="modal lg">
+    <div class="mhd">
+      <div class="mttl" id="rcvr-card-modal-title">Add Receiver Card</div>
+      <button class="mcls" onclick="cm('m-receiver-card-edit')">&#215;</button>
+    </div>
+    <input type="hidden" id="rcvr-card-edit-id" value="">
+    <div class="fgrid">
+      <div class="fg2">
+        <label>Card Name / Model *</label>
+        <input type="text" id="rcvr-card-name" placeholder="e.g. Nova MRV328">
+      </div>
+      <div class="fg2">
+        <label>Manufacturer</label>
+        <input type="text" id="rcvr-card-mfr" placeholder="e.g. Nova Star">
+      </div>
+      <div class="fg2">
+        <label>Model Number</label>
+        <input type="text" id="rcvr-card-model" placeholder="e.g. MRV328">
+      </div>
+      <div class="fg2">
+        <label>Notes</label>
+        <input type="text" id="rcvr-card-notes" placeholder="Optional...">
+      </div>
+      <div class="fg2">
+        <label>Max Pixels (W)</label>
+        <input type="number" id="rcvr-card-pw" placeholder="e.g. 256">
+      </div>
+      <div class="fg2">
+        <label>Max Pixels (H)</label>
+        <input type="number" id="rcvr-card-ph" placeholder="e.g. 128">
+      </div>
+    </div>
+    <div class="mft">
+      <button class="btn bout" onclick="cm('m-receiver-card-edit')">Cancel</button>
+      <button class="btn bcyan" id="rcvr-card-submit-btn" onclick="submitReceiverCard()">&#10003; Save Card</button>
+    </div>
+  </div>
+</div>
+
+<!-- Receiver Card Detail / Firmware Modal -->
+<div class="mover" id="m-receiver-card-detail">
+  <div class="modal xl">
+    <div class="mhd">
+      <div class="mttl" id="rcvr-detail-title">Receiver Card</div>
+      <button class="mcls" onclick="cm('m-receiver-card-detail')">&#215;</button>
+    </div>
+    <div id="rcvr-detail-info" style="margin-bottom:18px"></div>
+    <!-- Firmware section -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="font-family:Rajdhani,sans-serif;font-size:16px;font-weight:700;color:var(--c1)">Firmware Versions</div>
+      <button class="btn bcyan bsm" id="rcvr-add-fw-btn" onclick="openAddFirmware()">+ Upload Firmware</button>
+    </div>
+    <div id="rcvr-firmware-list"></div>
+    <!-- Upload firmware form (hidden until triggered) -->
+    <div id="rcvr-fw-upload-form" style="display:none;background:var(--bgc2);border:1px solid var(--bdr);border-radius:10px;padding:16px;margin-top:12px">
+      <div class="fgrid">
+        <div class="fg2">
+          <label>Version *</label>
+          <input type="text" id="rcvr-fw-version" placeholder="e.g. V4.6.5.5 or 2024-03">
+        </div>
+        <div class="fg2">
+          <label>Description</label>
+          <input type="text" id="rcvr-fw-desc" placeholder="What this version addresses...">
+        </div>
+        <div class="fg2 full" style="display:flex;align-items:center;gap:8px">
+          <input type="checkbox" id="rcvr-fw-latest" style="accent-color:var(--c1);width:16px;height:16px">
+          <label for="rcvr-fw-latest" style="font-size:13px;cursor:pointer">Mark as latest / recommended version</label>
+        </div>
+        <div class="fg2 full">
+          <label>Firmware File *</label>
+          <div class="file-upload-zone" id="rcvr-fw-zone" onclick="document.getElementById('rcvr-fw-input').click()">
+            <div style="font-size:24px;margin-bottom:6px">&#128187;</div>
+            <div style="font-size:12px;color:var(--tm)" id="rcvr-fw-label">Click to upload firmware file</div>
+          </div>
+          <input type="file" id="rcvr-fw-input" style="display:none" onchange="rcvrFwFileSelected(event)">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn bout" onclick="document.getElementById('rcvr-fw-upload-form').style.display='none'">Cancel</button>
+        <button class="btn bcyan" id="rcvr-fw-submit-btn" onclick="submitFirmware()">&#8679; Upload Firmware</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Quick Add Receiver Card (inline from programming modal) -->
+<div class="mover" id="m-rcvr-quick-add">
+  <div class="modal sm">
+    <div class="mhd">
+      <div class="mttl">Quick Add Receiver Card</div>
+      <button class="mcls" onclick="cm('m-rcvr-quick-add')">&#215;</button>
+    </div>
+    <div class="fgrid">
+      <div class="fg2 full">
+        <label>Card Name / Model *</label>
+        <input type="text" id="rcvr-quick-name" placeholder="e.g. Nova MRV328">
+      </div>
+      <div class="fg2">
+        <label>Manufacturer</label>
+        <input type="text" id="rcvr-quick-mfr" placeholder="e.g. Nova Star">
+      </div>
+      <div class="fg2">
+        <label>Model Number</label>
+        <input type="text" id="rcvr-quick-model" placeholder="e.g. MRV328">
+      </div>
+    </div>
+    <div class="mft">
+      <button class="btn bout" onclick="cm('m-rcvr-quick-add')">Cancel</button>
+      <button class="btn bcyan" onclick="submitQuickReceiverCard()">&#10003; Add Card</button>
     </div>
   </div>
 </div>

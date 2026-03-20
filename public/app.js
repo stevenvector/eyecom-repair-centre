@@ -1073,12 +1073,12 @@ async function renderStockPage(){
           '<span style="font-family:Rajdhani,sans-serif;font-size:17px;font-weight:700;color:var(--c1)">'+s.batch+'</span>'+
           '<span style="margin-left:10px;background:rgba(168,85,247,.1);color:var(--cp);padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600">'+(s.pitch||'-')+'</span>'+
           '<div style="font-size:13px;color:var(--tp);margin-top:3px">'+s.job_name+'</div>'+
-          '<div style="font-size:12px;color:var(--tm)">'+s.client+(job?' . <a onclick="cm(\'m-stock-detail\');viewJob(\''+s.job_id+'\')" style="color:var(--c1);cursor:pointer">View Job</a>':'')+'</div>'+
+          '<div style="font-size:12px;color:var(--tm)">'+s.client+(job?' . <a onclick="cm(\'m-stock-detail\');viewJob(\'' + s.job_id + '\')" style="color:var(--c1);cursor:pointer">View Job</a>':'')+'</div>'+
         '</div>'+
         '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
           '<span class="bdg '+stockStatusClass(s.status)+'">'+stockStatusLabel(s.status)+'</span>'+
-          (canEdit?'<button class="btn bcyan bsm" onclick="openDispatchFor(\''+s.id+'\')">&#8599; Dispatch</button>':'')+''+
-          '<button class="btn bout bsm" onclick="openStockDetail(\''+s.id+'\')">&#128269; Detail</button>'+
+          (canEdit?'<button class="btn bcyan bsm" onclick="openDispatchFor(\'' + s.id + '\')">&#8599; Dispatch</button>':'')+
+          '<button class="btn bout bsm" onclick="openStockDetail(\'' + s.id + '\')">&#128269; Detail</button>'+
         '</div>'+
       '</div>'+
       '<div class="stock-card-body">'+
@@ -1091,7 +1091,7 @@ async function renderStockPage(){
         '<div class="stock-bar-wrap"><div class="stock-bar" style="width:'+pct+'%;background:'+barColor+'"></div></div>'+
         '<div style="font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--tm);margin-bottom:6px">Recent Dispatches</div>'+
         dispRows+
-        (allDispatches.filter(function(d){return d.stock_id===s.id;}).length>3?'<div style="font-size:12px;color:var(--c1);cursor:pointer;margin-top:6px" onclick="openStockDetail(\''+s.id+'\')">View all dispatches...</div>':'')+
+        (allDispatches.filter(function(d){return d.stock_id===s.id;}).length>3?'<div style="font-size:12px;color:var(--c1);cursor:pointer;margin-top:6px" onclick="openStockDetail(\'' + s.id + '\')">View all dispatches...</div>':'')+
       '</div>'+
     '</div>';
   }).join('');
@@ -1284,8 +1284,8 @@ async function openStockDetail(stockId){
       }).join('')+'</div>'
     :'<div class="empty" style="padding:20px 0"><p class="etxt">No dispatches yet</p></div>')+
     '<div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">'+
-      '<button class="btn bcyan" onclick="cm(\'m-stock-detail\');openDispatchFor(\''+s.id+'\')">&#8599; Dispatch Stock</button>'+
-      (job?'<button class="btn bout" onclick="cm(\'m-stock-detail\');viewJob(\''+s.job_id+'\')">&#128269; View Job</button>':'')+
+      '<button class="btn bcyan" onclick="cm(\'m-stock-detail\');openDispatchFor(\'' + s.id + '\')">&#8599; Dispatch Stock</button>'+
+      (job?'<button class="btn bout" onclick="cm(\'m-stock-detail\');viewJob(\'' + s.job_id + '\')">&#128269; View Job</button>':'')+
     '</div>';
   om('m-stock-detail');
 }
@@ -2298,39 +2298,35 @@ showPage = function(n) {
 
 
 
-// ==============================================
-//  PROGRAMMING TABLE
-// ==============================================
-var allProgramming = [];
-var allPermissions = [];
-var _progRcfgxFile = null;
-var _progFwFile    = null;
-var _progRcfgxKeep = true;
-var _progFwKeep    = true;
 
-// -- Load programming records ------------------
+// ==============================================
+//  PROGRAMMING TABLE  (Batch Records)
+// ==============================================
+var allProgramming   = [];
+var allPermissions   = [];
+var allReceiverCards = [];
+var _progRcfgxFile   = null;
+var _progRcfgxKeep   = true;
+var _progTab         = 'batch';   // 'batch' | 'rcvr'
+
+// -- Receiver card firmware state
+var _rcvrFwFile      = null;
+var _currentRcvrId   = null;
+
+// Fetch all programming data
 async function loadProgramming() {
   var isPriv = CU && (CU.is_admin || CU.is_senior);
-  var q = sb.from('rc_programming').select('*').order('batch_number');
-  var res = await q;
+  var res = await sb.from('rc_programming').select('*').order('batch_number');
   var all = res.data || [];
-
   if (!isPriv) {
-    // Load visibility for this user
-    var vres = await sb.from('rc_programming_visibility')
-      .select('programming_id').eq('user_id', CU.id);
+    var vres = await sb.from('rc_programming_visibility').select('programming_id').eq('user_id', CU.id);
     var allowed = new Set((vres.data || []).map(function(v){ return v.programming_id; }));
-    // Also check user permissions
-    var perm = allPermissions.find(function(p){ return p.user_id === CU.id; });
-    if (perm && !perm.can_view_programming) {
-      allProgramming = [];
-      return;
-    }
-    // Show records visible to this user OR records with no visibility restrictions
     var vAll = await sb.from('rc_programming_visibility').select('programming_id');
     var restricted = new Set((vAll.data || []).map(function(v){ return v.programming_id; }));
+    var perm = allPermissions.find(function(p){ return p.user_id === CU.id; });
+    if (perm && !perm.can_view_programming) { allProgramming = []; return; }
     allProgramming = all.filter(function(p) {
-      if (!restricted.has(p.id)) return true; // no restrictions set = visible to all
+      if (!restricted.has(p.id)) return true;
       return allowed.has(p.id);
     });
   } else {
@@ -2338,58 +2334,143 @@ async function loadProgramming() {
   }
 }
 
-// -- Render programming page -------------------
+async function loadReceiverCards() {
+  var res = await sb.from('rc_receiver_cards').select('*').order('name');
+  allReceiverCards = res.data || [];
+}
+
+// Switch between Batch / Receiver Cards tabs
+function switchProgTab(tab) {
+  _progTab = tab;
+  document.getElementById('tab-batch').classList.toggle('active', tab === 'batch');
+  document.getElementById('tab-rcvr').classList.toggle('active', tab === 'rcvr');
+  // Update tab border styling
+  ['batch','rcvr'].forEach(function(t) {
+    var el = document.getElementById('tab-' + t);
+    if (el) {
+      el.style.borderBottomColor = t === tab ? 'var(--c1)' : 'transparent';
+      el.style.color = t === tab ? 'var(--c1)' : 'var(--tm)';
+    }
+  });
+  // Show/hide pitch filter (only relevant for batch tab)
+  var pf = document.getElementById('prog-pitch-filter');
+  if (pf) pf.style.display = tab === 'batch' ? '' : 'none';
+  renderProgrammingPage();
+}
+
+// Main render
 async function renderProgrammingPage() {
   var isPriv = CU && (CU.is_admin || CU.is_senior);
   var adminBtns = document.getElementById('prog-admin-btns');
-  if (adminBtns) adminBtns.style.display = isPriv ? '' : 'none';
+  if (adminBtns) adminBtns.style.display = isPriv ? 'flex' : 'none';
 
   await loadProgramming();
+  await loadReceiverCards();
+
   var search = (document.getElementById('prog-search').value || '').toLowerCase();
-  var items = allProgramming;
+
+  if (_progTab === 'batch') {
+    renderBatchTab(search, isPriv);
+  } else {
+    renderReceiverCardsTab(search, isPriv);
+  }
+}
+
+function renderBatchTab(search, isPriv) {
+  var pitchF = document.getElementById('prog-pitch-filter').value;
+  var items  = allProgramming;
   if (search) items = items.filter(function(p) {
     return p.batch_number.toLowerCase().includes(search) ||
-           p.driver_chip.toLowerCase().includes(search) ||
-           p.decoder_chip.toLowerCase().includes(search) ||
+           (p.driver_chip||'').toLowerCase().includes(search) ||
+           (p.decoder_chip||'').toLowerCase().includes(search) ||
+           (p.pitch||'').toLowerCase().includes(search) ||
            (p.notes||'').toLowerCase().includes(search);
   });
+  if (pitchF) items = items.filter(function(p){ return p.pitch === pitchF; });
 
   var sl = document.getElementById('prog-summary-line');
-  if (sl) sl.textContent = allProgramming.length + ' records';
+  if (sl) sl.textContent = allProgramming.length + ' batch records, ' + allReceiverCards.length + ' receiver card types';
 
   if (!items.length) {
     document.getElementById('prog-content').innerHTML =
-      '<div class="empty"><div class="eico">&#128190;</div><p class="etxt">No programming records found</p></div>';
+      '<div class="empty"><div class="eico">&#128190;</div><p class="etxt">No batch records found</p></div>';
     return;
   }
 
   document.getElementById('prog-content').innerHTML = items.map(function(p) {
-    var creator = allUsers.find(function(u){ return u.id === p.created_by; });
+    var creator  = allUsers.find(function(u){ return u.id === p.created_by; });
+    var rcvr     = allReceiverCards.find(function(c){ return c.id === p.receiver_card_id; });
     var rcfgxBtn = p.rcfgx_url
-      ? '<a href="' + p.rcfgx_url + '" download="' + (p.rcfgx_name||'config.rcfgx') + '" class="file-dl-btn">&#8659; RCFGX<span style="font-size:10px;color:var(--tm)"> ' + fmtFileSize(p.rcfgx_size) + '</span></a>'
+      ? '<a href="' + p.rcfgx_url + '" download="' + (p.rcfgx_name||'config.rcfgx') + '" class="file-dl-btn">&#8659; RCFGX<span style="font-size:10px;color:var(--tm);margin-left:4px">' + fmtFileSize(p.rcfgx_size) + '</span></a>'
       : '<span class="file-dl-btn no-file">&#8659; RCFGX</span>';
-    var fwBtn = p.firmware_url
-      ? '<a href="' + p.firmware_url + '" download="' + (p.firmware_name||'firmware.bin') + '" class="file-dl-btn">&#8659; Firmware<span style="font-size:10px;color:var(--tm)"> ' + fmtFileSize(p.firmware_size) + '</span></a>'
-      : '<span class="file-dl-btn no-file">&#8659; Firmware</span>';
-    var adminBtns = isPriv
+    var adminBtns2 = isPriv
       ? '<button class="btn bcyan bsm" onclick="openEditProgramming(\'' + p.id + '\')">&#9998; Edit</button>' +
         '<button class="btn bdanger bsm" onclick="deleteProgramming(\'' + p.id + '\')">&#128465;</button>'
       : '';
     return '<div class="prog-card">' +
       '<div class="prog-card-hd">' +
         '<div>' +
-          '<div class="prog-batch">' + escHtml(p.batch_number) + '</div>' +
+          '<div style="display:flex;align-items:center;gap:10px">' +
+            '<div class="prog-batch">' + escHtml(p.batch_number) + '</div>' +
+            (p.pitch ? '<span style="background:rgba(168,85,247,.12);color:var(--cp);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">' + p.pitch + '</span>' : '') +
+          '</div>' +
           '<div style="font-size:11px;color:var(--tm);margin-top:2px">Added ' + new Date(p.created_at).toLocaleDateString() + (creator ? ' by ' + creator.name : '') + '</div>' +
         '</div>' +
         '<div class="prog-chips">' +
           '<span class="prog-chip-item">Driver: ' + escHtml(p.driver_chip) + '</span>' +
           '<span class="prog-chip-item">Decoder: ' + escHtml(p.decoder_chip) + '</span>' +
+          (rcvr ? '<span class="prog-chip-item" style="background:rgba(0,255,136,.08);color:var(--cg);border-color:rgba(0,255,136,.2)">&#128190; ' + escHtml(rcvr.name) + '</span>' : '') +
         '</div>' +
-        '<div style="display:flex;gap:6px">' + adminBtns + '</div>' +
+        '<div style="display:flex;gap:6px">' + adminBtns2 + '</div>' +
       '</div>' +
       '<div class="prog-card-bd">' +
-        rcfgxBtn + fwBtn +
+        rcfgxBtn +
+        (rcvr ? '<button class="file-dl-btn" onclick="openReceiverCardDetail(\'' + rcvr.id + '\')">&#128190; ' + escHtml(rcvr.name) + ' Firmware</button>' : '') +
         (p.notes ? '<span style="font-size:12px;color:var(--tm);margin-left:8px">' + escHtml(p.notes) + '</span>' : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// Receiver cards tab
+function renderReceiverCardsTab(search, isPriv) {
+  var cards = allReceiverCards;
+  if (search) cards = cards.filter(function(c) {
+    return c.name.toLowerCase().includes(search) ||
+           (c.manufacturer||'').toLowerCase().includes(search) ||
+           (c.model_number||'').toLowerCase().includes(search);
+  });
+
+  if (!cards.length) {
+    document.getElementById('prog-content').innerHTML =
+      '<div class="empty"><div class="eico">&#128190;</div><p class="etxt">No receiver cards found</p>' +
+      (isPriv ? '<button class="btn bcyan" onclick="openAddReceiverCard()" style="margin-top:12px">+ Add First Receiver Card</button>' : '') +
+      '</div>';
+    return;
+  }
+
+  document.getElementById('prog-content').innerHTML = cards.map(function(c) {
+    var batchCount = allProgramming.filter(function(p){ return p.receiver_card_id === c.id; }).length;
+    return '<div class="prog-card">' +
+      '<div class="prog-card-hd">' +
+        '<div>' +
+          '<div class="prog-batch">' + escHtml(c.name) + '</div>' +
+          '<div style="font-size:11px;color:var(--tm);margin-top:2px">' +
+            (c.manufacturer ? c.manufacturer + ' ' : '') + (c.model_number ? '| Model: ' + c.model_number : '') +
+          '</div>' +
+        '</div>' +
+        '<div class="prog-chips">' +
+          (c.max_pixels_w ? '<span class="prog-chip-item">' + c.max_pixels_w + ' x ' + c.max_pixels_h + ' px</span>' : '') +
+          '<span class="prog-chip-item" style="background:rgba(168,85,247,.08);color:var(--cp)">' + batchCount + ' batch' + (batchCount!==1?'es':'') + '</span>' +
+        '</div>' +
+        (isPriv ? '<div style="display:flex;gap:6px">' +
+          '<button class="btn bcyan bsm" onclick="openEditReceiverCard(\'' + c.id + '\')">&#9998; Edit</button>' +
+          '<button class="btn bdanger bsm" onclick="deleteReceiverCard(\'' + c.id + '\')">&#128465;</button>' +
+        '</div>' : '') +
+      '</div>' +
+      '<div class="prog-card-bd">' +
+        '<button class="file-dl-btn" onclick="openReceiverCardDetail(\'' + c.id + '\')">&#128187; View Firmware (' + c.id + ')</button>' +
+        (c.notes ? '<span style="font-size:12px;color:var(--tm);margin-left:8px">' + escHtml(c.notes) + '</span>' : '') +
       '</div>' +
     '</div>';
   }).join('');
@@ -2402,38 +2483,303 @@ function fmtFileSize(bytes) {
   return (bytes/1048576).toFixed(1) + ' MB';
 }
 
-// -- Open add modal ----------------------------
+//    Open receiver cards library                                            
+async function openReceiverCards() {
+  await loadReceiverCards();
+  await renderReceiverCardsList();
+  om('m-receiver-cards');
+}
+
+async function renderReceiverCardsList() {
+  var cont = document.getElementById('rcvr-cards-list');
+  if (!allReceiverCards.length) {
+    cont.innerHTML = '<div class="empty"><div class="eico">&#128190;</div><p class="etxt">No receiver cards yet</p></div>';
+    return;
+  }
+  cont.innerHTML = allReceiverCards.map(function(c) {
+    var batchCount = allProgramming.filter(function(p){ return p.receiver_card_id === c.id; }).length;
+    return '<div class="prog-card" style="margin-bottom:8px">' +
+      '<div class="prog-card-hd">' +
+        '<div><div class="prog-batch">' + escHtml(c.name) + '</div>' +
+        '<div style="font-size:11px;color:var(--tm)">' + (c.manufacturer||'') + (c.model_number?' | '+c.model_number:'') + '</div></div>' +
+        '<div class="prog-chips">' +
+          (c.max_pixels_w?'<span class="prog-chip-item">'+c.max_pixels_w+' x '+c.max_pixels_h+' px</span>':'') +
+          '<span class="prog-chip-item">' + batchCount + ' batches</span>' +
+        '</div>' +
+        '<div style="display:flex;gap:6px">' +
+          '<button class="btn bcyan bsm" onclick="openReceiverCardDetail(\'' + c.id + '\')">&#128187; Firmware</button>' +
+          '<button class="btn bout bsm" onclick="openEditReceiverCard(\'' + c.id + '\')">&#9998;</button>' +
+          '<button class="btn bdanger bsm" onclick="deleteReceiverCard(\'' + c.id + '\')">&#128465;</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+//    Add / Edit receiver card                                               
+function openAddReceiverCard() {
+  document.getElementById('rcvr-card-edit-id').value = '';
+  document.getElementById('rcvr-card-modal-title').textContent = 'Add Receiver Card';
+  ['rcvr-card-name','rcvr-card-mfr','rcvr-card-model','rcvr-card-notes'].forEach(function(id){
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('rcvr-card-pw').value = '';
+  document.getElementById('rcvr-card-ph').value = '';
+  om('m-receiver-card-edit');
+}
+
+function openEditReceiverCard(id) {
+  var c = allReceiverCards.find(function(x){ return x.id === id; });
+  if (!c) return;
+  document.getElementById('rcvr-card-edit-id').value = id;
+  document.getElementById('rcvr-card-modal-title').textContent = 'Edit Receiver Card';
+  document.getElementById('rcvr-card-name').value  = c.name || '';
+  document.getElementById('rcvr-card-mfr').value   = c.manufacturer || '';
+  document.getElementById('rcvr-card-model').value = c.model_number || '';
+  document.getElementById('rcvr-card-notes').value = c.notes || '';
+  document.getElementById('rcvr-card-pw').value    = c.max_pixels_w || '';
+  document.getElementById('rcvr-card-ph').value    = c.max_pixels_h || '';
+  om('m-receiver-card-edit');
+}
+
+async function submitReceiverCard() {
+  var editId = document.getElementById('rcvr-card-edit-id').value.trim();
+  var name   = document.getElementById('rcvr-card-name').value.trim();
+  if (!name) { toast('Card name is required', 'error'); return; }
+  var btn = document.getElementById('rcvr-card-submit-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Saving...';
+  try {
+    var payload = {
+      name:          name,
+      manufacturer:  document.getElementById('rcvr-card-mfr').value.trim() || null,
+      model_number:  document.getElementById('rcvr-card-model').value.trim() || null,
+      notes:         document.getElementById('rcvr-card-notes').value.trim() || null,
+      max_pixels_w:  parseInt(document.getElementById('rcvr-card-pw').value) || null,
+      max_pixels_h:  parseInt(document.getElementById('rcvr-card-ph').value) || null,
+      updated_at:    new Date().toISOString()
+    };
+    var res;
+    if (editId) {
+      res = await sb.from('rc_receiver_cards').update(payload).eq('id', editId);
+    } else {
+      payload.created_by = CU.id;
+      res = await sb.from('rc_receiver_cards').insert(payload);
+    }
+    if (res.error) { toast('Error: ' + res.error.message, 'error'); return; }
+    await loadReceiverCards();
+    cm('m-receiver-card-edit');
+    await renderReceiverCardsList();
+    toast(editId ? 'Card updated!' : 'Card added!', 'success');
+    if (document.getElementById('page-programming').classList.contains('active')) renderProgrammingPage();
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save Card';
+  }
+}
+
+async function deleteReceiverCard(id) {
+  if (!confirm('Delete this receiver card? All associated firmware files will also be deleted.')) return;
+  // Get firmware files for cleanup
+  var fwRes = await sb.from('rc_receiver_card_firmware').select('file_name').eq('receiver_card_id', id);
+  var fwFiles = (fwRes.data || []).map(function(f){ return f.file_name; });
+  if (fwFiles.length) await sb.storage.from('programming-files').remove(fwFiles);
+  await sb.from('rc_receiver_card_firmware').delete().eq('receiver_card_id', id);
+  var res = await sb.from('rc_receiver_cards').delete().eq('id', id);
+  if (res.error) { toast('Error: ' + res.error.message, 'error'); return; }
+  await loadReceiverCards();
+  await renderReceiverCardsList();
+  toast('Receiver card deleted', 'info');
+  if (document.getElementById('page-programming').classList.contains('active')) renderProgrammingPage();
+}
+
+// Quick add from programming modal
+function openAddReceiverCardInline() {
+  document.getElementById('rcvr-quick-name').value  = '';
+  document.getElementById('rcvr-quick-mfr').value   = '';
+  document.getElementById('rcvr-quick-model').value = '';
+  om('m-rcvr-quick-add');
+}
+
+async function submitQuickReceiverCard() {
+  var name = document.getElementById('rcvr-quick-name').value.trim();
+  if (!name) { toast('Card name is required', 'error'); return; }
+  var res = await sb.from('rc_receiver_cards').insert({
+    name:         name,
+    manufacturer: document.getElementById('rcvr-quick-mfr').value.trim() || null,
+    model_number: document.getElementById('rcvr-quick-model').value.trim() || null,
+    created_by:   CU.id
+  }).select().single();
+  if (res.error) { toast('Error: ' + res.error.message, 'error'); return; }
+  await loadReceiverCards();
+  // Refresh the receiver card dropdown in the programming modal
+  populateRcvrCardSelect();
+  // Select the new card
+  var sel = document.getElementById('prog-rcvr-card');
+  if (sel && res.data) sel.value = res.data.id;
+  cm('m-rcvr-quick-add');
+  toast('Receiver card added!', 'success');
+}
+
+function populateRcvrCardSelect() {
+  var sel = document.getElementById('prog-rcvr-card');
+  if (!sel) return;
+  var cur = sel.value;
+  sel.innerHTML = '<option value="">None / Not specified</option>' +
+    allReceiverCards.map(function(c){
+      return '<option value="' + c.id + '">' + c.name + (c.manufacturer?' - '+c.manufacturer:'') + '</option>';
+    }).join('');
+  if (cur) sel.value = cur;
+}
+
+//    Receiver card detail + firmware                                       
+async function openReceiverCardDetail(cardId) {
+  _currentRcvrId = cardId;
+  var c = allReceiverCards.find(function(x){ return x.id === cardId; });
+  if (!c) return;
+  var isPriv = CU && (CU.is_admin || CU.is_senior);
+  document.getElementById('rcvr-detail-title').textContent = c.name;
+  document.getElementById('rcvr-add-fw-btn').style.display = isPriv ? '' : 'none';
+  document.getElementById('rcvr-fw-upload-form').style.display = 'none';
+  document.getElementById('rcvr-detail-info').innerHTML =
+    '<div class="damage-meta-grid">' +
+      (c.manufacturer?'<div class="dl"><div class="dlb">Manufacturer</div><div class="dlv">'+escHtml(c.manufacturer)+'</div></div>':'') +
+      (c.model_number?'<div class="dl"><div class="dlb">Model</div><div class="dlv">'+escHtml(c.model_number)+'</div></div>':'') +
+      (c.max_pixels_w?'<div class="dl"><div class="dlb">Max Resolution</div><div class="dlv">'+c.max_pixels_w+' x '+c.max_pixels_h+' px</div></div>':'') +
+      (c.notes?'<div class="dl"><div class="dlb">Notes</div><div class="dlv">'+escHtml(c.notes)+'</div></div>':'') +
+    '</div>';
+  await renderFirmwareList(cardId);
+  om('m-receiver-card-detail');
+}
+
+async function renderFirmwareList(cardId) {
+  var res = await sb.from('rc_receiver_card_firmware')
+    .select('*').eq('receiver_card_id', cardId).order('uploaded_at', {ascending:false});
+  var fw = res.data || [];
+  var isPriv = CU && (CU.is_admin || CU.is_senior);
+  var cont = document.getElementById('rcvr-firmware-list');
+  if (!fw.length) {
+    cont.innerHTML = '<div style="text-align:center;padding:20px;color:var(--tm);font-size:13px">No firmware uploaded yet</div>';
+    return;
+  }
+  cont.innerHTML = fw.map(function(f) {
+    var uploader = allUsers.find(function(u){ return u.id === f.uploaded_by; });
+    return '<div class="fw-row">' +
+      '<div style="flex:1">' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">' +
+          '<span class="fw-version-badge">' + escHtml(f.version) + '</span>' +
+          (f.is_latest ? '<span class="fw-latest-badge">LATEST</span>' : '') +
+        '</div>' +
+        (f.description ? '<div style="font-size:12px;color:var(--tm)">' + escHtml(f.description) + '</div>' : '') +
+        '<div style="font-size:11px;color:var(--tm);margin-top:2px">' +
+          fmtFileSize(f.file_size) + (uploader ? ' &middot; Uploaded by ' + uploader.name : '') +
+          ' &middot; ' + new Date(f.uploaded_at).toLocaleDateString() +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:6px;align-items:center">' +
+        '<a href="' + f.file_url + '" download="' + escHtml(f.file_name) + '" class="file-dl-btn">&#8659; Download</a>' +
+        (isPriv ? '<button class="btn bdanger bsm" onclick="deleteFirmware(\'' + f.id + '\',\'' + f.file_name + '\')">&#128465;</button>' : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function openAddFirmware() {
+  document.getElementById('rcvr-fw-version').value = '';
+  document.getElementById('rcvr-fw-desc').value    = '';
+  document.getElementById('rcvr-fw-latest').checked = false;
+  document.getElementById('rcvr-fw-label').textContent = 'Click to upload firmware file';
+  document.getElementById('rcvr-fw-zone').classList.remove('has-file');
+  document.getElementById('rcvr-fw-input').value = '';
+  _rcvrFwFile = null;
+  document.getElementById('rcvr-fw-upload-form').style.display = '';
+  document.getElementById('rcvr-fw-upload-form').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function rcvrFwFileSelected(event) {
+  var file = event.target.files[0];
+  if (!file) return;
+  if (file.size > 52428800) { toast('File must be under 50MB', 'error'); return; }
+  _rcvrFwFile = file;
+  document.getElementById('rcvr-fw-label').textContent = file.name + ' (' + fmtFileSize(file.size) + ')';
+  document.getElementById('rcvr-fw-zone').classList.add('has-file');
+}
+
+async function submitFirmware() {
+  if (!_rcvrFwFile) { toast('Please select a firmware file', 'error'); return; }
+  var version = document.getElementById('rcvr-fw-version').value.trim();
+  if (!version) { toast('Version is required', 'error'); return; }
+  var btn = document.getElementById('rcvr-fw-submit-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Uploading...';
+  try {
+    var fn  = 'fw-' + _currentRcvrId + '-' + Date.now() + '-' + _rcvrFwFile.name;
+    var up  = await sb.storage.from('programming-files').upload(fn, _rcvrFwFile, {contentType:'application/octet-stream', upsert:false});
+    if (up.error) { toast('Upload failed: ' + up.error.message, 'error'); return; }
+    var url = sb.storage.from('programming-files').getPublicUrl(fn).data.publicUrl;
+    var isLatest = document.getElementById('rcvr-fw-latest').checked;
+    // If marking as latest, unmark others
+    if (isLatest) {
+      await sb.from('rc_receiver_card_firmware').update({is_latest:false}).eq('receiver_card_id', _currentRcvrId);
+    }
+    var res = await sb.from('rc_receiver_card_firmware').insert({
+      receiver_card_id: _currentRcvrId,
+      version:          version,
+      description:      document.getElementById('rcvr-fw-desc').value.trim() || null,
+      is_latest:        isLatest,
+      file_name:        fn,
+      file_url:         url,
+      file_size:        _rcvrFwFile.size,
+      uploaded_by:      CU.id
+    });
+    if (res.error) { toast('Error: ' + res.error.message, 'error'); return; }
+    document.getElementById('rcvr-fw-upload-form').style.display = 'none';
+    _rcvrFwFile = null;
+    await renderFirmwareList(_currentRcvrId);
+    toast('Firmware uploaded!', 'success');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Upload Firmware';
+  }
+}
+
+async function deleteFirmware(id, fileName) {
+  if (!confirm('Delete this firmware version?')) return;
+  if (fileName) await sb.storage.from('programming-files').remove([fileName]);
+  var res = await sb.from('rc_receiver_card_firmware').delete().eq('id', id);
+  if (res.error) { toast('Error: ' + res.error.message, 'error'); return; }
+  await renderFirmwareList(_currentRcvrId);
+  toast('Firmware deleted', 'info');
+}
+
+//    Programming modal open/edit                                            
 async function openAddProgramming() {
   document.getElementById('prog-edit-id').value = '';
-  document.getElementById('prog-modal-title').textContent = 'Add Programming Record';
-  document.getElementById('prog-submit-btn').textContent = 'Save Record';
+  document.getElementById('prog-modal-title').textContent = 'Add Batch Record';
+  document.getElementById('prog-submit-btn').textContent  = 'Save Record';
   ['prog-batch','prog-driver','prog-decoder','prog-notes'].forEach(function(id){
     document.getElementById(id).value = '';
   });
-  _progRcfgxFile = null; _progFwFile = null;
-  _progRcfgxKeep = true; _progFwKeep = true;
-  resetProgFileZone('rcfgx'); resetProgFileZone('firmware');
+  document.getElementById('prog-pitch').value = '';
+  _progRcfgxFile = null; _progRcfgxKeep = true;
+  resetProgFileZone('rcfgx');
   document.getElementById('prog-rcfgx-existing').style.display = 'none';
-  document.getElementById('prog-fw-existing').style.display = 'none';
+  populateRcvrCardSelect();
+  document.getElementById('prog-rcvr-card').value = '';
   await buildTechCheckboxes(null);
   om('m-programming');
 }
 
-// -- Open edit modal ---------------------------
 async function openEditProgramming(id) {
   var p = allProgramming.find(function(x){ return x.id === id; });
   if (!p) return;
   document.getElementById('prog-edit-id').value = id;
-  document.getElementById('prog-modal-title').textContent = 'Edit Programming Record';
-  document.getElementById('prog-submit-btn').textContent = 'Save Changes';
+  document.getElementById('prog-modal-title').textContent = 'Edit Batch Record';
+  document.getElementById('prog-submit-btn').textContent  = 'Save Changes';
   document.getElementById('prog-batch').value   = p.batch_number || '';
+  document.getElementById('prog-pitch').value   = p.pitch        || '';
   document.getElementById('prog-driver').value  = p.driver_chip  || '';
   document.getElementById('prog-decoder').value = p.decoder_chip || '';
   document.getElementById('prog-notes').value   = p.notes        || '';
-  _progRcfgxFile = null; _progFwFile = null;
-  _progRcfgxKeep = true; _progFwKeep = true;
-  resetProgFileZone('rcfgx'); resetProgFileZone('firmware');
-  // Show existing files
+  _progRcfgxFile = null; _progRcfgxKeep = true;
+  resetProgFileZone('rcfgx');
+  document.getElementById('prog-rcfgx-existing').style.display = 'none';
   if (p.rcfgx_name) {
     document.getElementById('prog-rcfgx-label').textContent = p.rcfgx_name;
     document.getElementById('prog-rcfgx-zone').classList.add('has-file');
@@ -2442,53 +2788,40 @@ async function openEditProgramming(id) {
       'Current: <strong>' + p.rcfgx_name + '</strong> (' + fmtFileSize(p.rcfgx_size) + ') ' +
       '<button class="btn bdanger bsm" onclick="clearProgFile(\'rcfgx\')">Remove</button>';
   }
-  if (p.firmware_name) {
-    document.getElementById('prog-fw-label').textContent = p.firmware_name;
-    document.getElementById('prog-fw-zone').classList.add('has-file');
-    document.getElementById('prog-fw-existing').style.display = '';
-    document.getElementById('prog-fw-existing').innerHTML =
-      'Current: <strong>' + p.firmware_name + '</strong> (' + fmtFileSize(p.firmware_size) + ') ' +
-      '<button class="btn bdanger bsm" onclick="clearProgFile(\'firmware\')">Remove</button>';
-  }
-  // Load current visibility
+  populateRcvrCardSelect();
+  document.getElementById('prog-rcvr-card').value = p.receiver_card_id || '';
   var vres = await sb.from('rc_programming_visibility').select('user_id').eq('programming_id', id);
-  var currentAllowed = (vres.data || []).map(function(v){ return v.user_id; });
-  await buildTechCheckboxes(currentAllowed);
+  await buildTechCheckboxes((vres.data||[]).map(function(v){ return v.user_id; }));
   om('m-programming');
 }
 
 function resetProgFileZone(type) {
-  var zone = document.getElementById('prog-' + (type==='rcfgx'?'rcfgx':'fw') + '-zone');
-  var lbl  = document.getElementById('prog-' + (type==='rcfgx'?'rcfgx':'fw') + '-label');
+  var zone = document.getElementById('prog-rcfgx-zone');
+  var lbl  = document.getElementById('prog-rcfgx-label');
   if (zone) zone.classList.remove('has-file');
-  if (lbl)  lbl.textContent = type === 'rcfgx' ? 'Click to upload .rcfgx file' : 'Click to upload firmware file';
+  if (lbl)  lbl.textContent = 'Click to upload .rcfgx file';
 }
 
 function progFileSelected(event, type) {
   var file = event.target.files[0];
   if (!file) return;
   if (file.size > 52428800) { toast('File must be under 50MB', 'error'); return; }
-  if (type === 'rcfgx') {
-    _progRcfgxFile = file;
-    document.getElementById('prog-rcfgx-label').textContent = file.name + ' (' + fmtFileSize(file.size) + ')';
-    document.getElementById('prog-rcfgx-zone').classList.add('has-file');
-    document.getElementById('prog-rcfgx-existing').style.display = 'none';
-  } else {
-    _progFwFile = file;
-    document.getElementById('prog-fw-label').textContent = file.name + ' (' + fmtFileSize(file.size) + ')';
-    document.getElementById('prog-fw-zone').classList.add('has-file');
-    document.getElementById('prog-fw-existing').style.display = 'none';
-  }
+  _progRcfgxFile = file;
+  document.getElementById('prog-rcfgx-label').textContent = file.name + ' (' + fmtFileSize(file.size) + ')';
+  document.getElementById('prog-rcfgx-zone').classList.add('has-file');
+  document.getElementById('prog-rcfgx-existing').style.display = 'none';
 }
 
 function clearProgFile(type) {
-  if (type === 'rcfgx') { _progRcfgxFile = null; _progRcfgxKeep = false; resetProgFileZone('rcfgx'); document.getElementById('prog-rcfgx-existing').style.display='none'; }
-  else { _progFwFile = null; _progFwKeep = false; resetProgFileZone('firmware'); document.getElementById('prog-fw-existing').style.display='none'; }
+  _progRcfgxFile = null; _progRcfgxKeep = false;
+  resetProgFileZone('rcfgx');
+  document.getElementById('prog-rcfgx-existing').style.display = 'none';
 }
 
 async function buildTechCheckboxes(selectedIds) {
   var techs = allUsers.filter(function(u){ return !u.is_admin && !u.is_senior && u.status==='active'; });
-  var cont = document.getElementById('prog-tech-checkboxes');
+  var cont  = document.getElementById('prog-tech-checkboxes');
+  if (!cont) return;
   if (!techs.length) { cont.innerHTML = '<div style="font-size:12px;color:var(--tm)">No technicians to assign visibility to.</div>'; return; }
   cont.innerHTML = techs.map(function(u) {
     var chk = selectedIds && selectedIds.indexOf(u.id) >= 0 ? 'checked' : '';
@@ -2498,7 +2831,7 @@ async function buildTechCheckboxes(selectedIds) {
   }).join('');
 }
 
-// -- Submit programming record -----------------
+//    Submit programming record                                              
 async function submitProgramming() {
   var editId  = document.getElementById('prog-edit-id').value.trim();
   var isEdit  = editId.length > 0;
@@ -2524,41 +2857,24 @@ async function submitProgramming() {
       var fn = 'prog-rcfgx-' + Date.now() + '-' + _progRcfgxFile.name;
       var up = await sb.storage.from('programming-files').upload(fn, _progRcfgxFile, {contentType:'application/octet-stream', upsert:false});
       if (!up.error) {
-        rcfgxUrl  = sb.storage.from('programming-files').getPublicUrl(fn).data.publicUrl;
-        rcfgxName = fn;
-        rcfgxSize = _progRcfgxFile.size;
+        rcfgxUrl = sb.storage.from('programming-files').getPublicUrl(fn).data.publicUrl;
+        rcfgxName = fn; rcfgxSize = _progRcfgxFile.size;
       } else { toast('RCFGX upload failed: ' + up.error.message, 'error'); }
     } else if (!_progRcfgxKeep && isEdit && rcfgxName) {
       await sb.storage.from('programming-files').remove([rcfgxName]);
       rcfgxUrl = null; rcfgxName = null; rcfgxSize = null;
     }
 
-    // Upload Firmware
-    var fwUrl = isEdit ? (existing||{}).firmware_url : null;
-    var fwName = isEdit ? (existing||{}).firmware_name : null;
-    var fwSize = isEdit ? (existing||{}).firmware_size : null;
-    if (_progFwFile) {
-      if (isEdit && fwName) await sb.storage.from('programming-files').remove([fwName]);
-      var fn2 = 'prog-fw-' + Date.now() + '-' + _progFwFile.name;
-      var up2 = await sb.storage.from('programming-files').upload(fn2, _progFwFile, {contentType:'application/octet-stream', upsert:false});
-      if (!up2.error) {
-        fwUrl  = sb.storage.from('programming-files').getPublicUrl(fn2).data.publicUrl;
-        fwName = fn2;
-        fwSize = _progFwFile.size;
-      } else { toast('Firmware upload failed: ' + up2.error.message, 'error'); }
-    } else if (!_progFwKeep && isEdit && fwName) {
-      await sb.storage.from('programming-files').remove([fwName]);
-      fwUrl = null; fwName = null; fwSize = null;
-    }
-
+    var rcvrId = document.getElementById('prog-rcvr-card').value || null;
     var payload = {
-      batch_number:  batch,
-      driver_chip:   driver,
-      decoder_chip:  decoder,
-      notes:         document.getElementById('prog-notes').value.trim() || null,
-      rcfgx_url:     rcfgxUrl,  rcfgx_name:    rcfgxName,  rcfgx_size:    rcfgxSize,
-      firmware_url:  fwUrl,     firmware_name:  fwName,     firmware_size:  fwSize,
-      updated_at:    new Date().toISOString()
+      batch_number:     batch,
+      pitch:            document.getElementById('prog-pitch').value || null,
+      driver_chip:      driver,
+      decoder_chip:     decoder,
+      notes:            document.getElementById('prog-notes').value.trim() || null,
+      receiver_card_id: rcvrId,
+      rcfgx_url:        rcfgxUrl, rcfgx_name: rcfgxName, rcfgx_size: rcfgxSize,
+      updated_at:       new Date().toISOString()
     };
 
     var res;
@@ -2571,8 +2887,6 @@ async function submitProgramming() {
     if (res.error) { toast('Error: ' + res.error.message, 'error'); return; }
 
     var progId = isEdit ? editId : (res.data||{}).id;
-
-    // Save visibility
     if (progId) {
       await sb.from('rc_programming_visibility').delete().eq('programming_id', progId);
       var checks = Array.from(document.querySelectorAll('#prog-tech-checkboxes input[type=checkbox]:checked'));
@@ -2593,12 +2907,9 @@ async function submitProgramming() {
 }
 
 async function deleteProgramming(id) {
-  if (!confirm('Delete this programming record? This cannot be undone.')) return;
+  if (!confirm('Delete this batch record?')) return;
   var p = allProgramming.find(function(x){ return x.id === id; });
-  if (p) {
-    if (p.rcfgx_name)    await sb.storage.from('programming-files').remove([p.rcfgx_name]);
-    if (p.firmware_name) await sb.storage.from('programming-files').remove([p.firmware_name]);
-  }
+  if (p && p.rcfgx_name) await sb.storage.from('programming-files').remove([p.rcfgx_name]);
   await sb.from('rc_programming_visibility').delete().eq('programming_id', id);
   var res = await sb.from('rc_programming').delete().eq('id', id);
   if (res.error) { toast('Error: ' + res.error.message, 'error'); return; }
@@ -2616,10 +2927,8 @@ async function loadPermissions() {
 
 function openPermissions() {
   var sel = document.getElementById('perm-user-select');
-  // Only technicians (not admins/seniors)
-  var techs = allUsers.filter(function(u){ return u.status === 'active'; });
   sel.innerHTML = '<option value="">Select a user...</option>' +
-    techs.map(function(u){
+    allUsers.filter(function(u){ return u.status==='active'; }).map(function(u){
       var tag = u.is_admin ? ' [Admin]' : u.is_senior ? ' [Senior]' : '';
       return '<option value="' + u.id + '">' + u.name + tag + '</option>';
     }).join('');
@@ -2645,8 +2954,8 @@ var PERM_DEFS = {
     {key:'can_export_pdf',      label:'Export PDF Reports',  sub:'Download PDF reports'},
   ],
   data: [
-    {key:'can_view_other_sessions', label:'View Others\' Sessions', sub:'See active sessions of other users'},
-    {key:'can_view_client_info',    label:'View Client Info',       sub:'See client names on jobs'},
+    {key:'can_view_other_sessions', label:"View Others' Sessions", sub:'See active sessions of other users'},
+    {key:'can_view_client_info',    label:'View Client Info',      sub:'See client names on jobs'},
   ]
 };
 
@@ -2659,14 +2968,12 @@ async function loadPermissionsForUser() {
     return;
   }
   var perm = allPermissions.find(function(p){ return p.user_id === uid; });
-  // Default all true if no record found
   var vals = perm || {
-    can_view_programming:true,can_view_stock:true,can_view_damage_log:true,
-    can_view_reports:false,can_view_all_jobs:true,can_start_sessions:true,
-    can_log_damage:true,can_edit_damage:true,can_dispatch_stock:false,
-    can_export_pdf:false,can_view_other_sessions:false,can_view_client_info:true
+    can_view_programming:true, can_view_stock:true, can_view_damage_log:true,
+    can_view_reports:false, can_view_all_jobs:true, can_start_sessions:true,
+    can_log_damage:true, can_edit_damage:true, can_dispatch_stock:false,
+    can_export_pdf:false, can_view_other_sessions:false, can_view_client_info:true
   };
-
   function buildGrid(defs, containerId) {
     document.getElementById(containerId).innerHTML = defs.map(function(d) {
       return '<div class="perm-row">' +
@@ -2676,12 +2983,10 @@ async function loadPermissionsForUser() {
       '</div>';
     }).join('');
   }
-
-  buildGrid(PERM_DEFS.access,   'perm-grid-access');
-  buildGrid(PERM_DEFS.actions,  'perm-grid-actions');
-  buildGrid(PERM_DEFS.data,     'perm-grid-data');
-
-  document.getElementById('perm-body').style.display = '';
+  buildGrid(PERM_DEFS.access,  'perm-grid-access');
+  buildGrid(PERM_DEFS.actions, 'perm-grid-actions');
+  buildGrid(PERM_DEFS.data,    'perm-grid-data');
+  document.getElementById('perm-body').style.display  = '';
   document.getElementById('perm-empty').style.display = 'none';
   document.getElementById('perm-footer').style.display = '';
 }
@@ -2689,44 +2994,38 @@ async function loadPermissionsForUser() {
 async function savePermissions() {
   var uid = document.getElementById('perm-user-select').value;
   if (!uid) return;
-
   var payload = {user_id: uid, set_by: CU.id, updated_at: new Date().toISOString()};
   document.querySelectorAll('[data-perm]').forEach(function(el) {
     payload[el.getAttribute('data-perm')] = el.checked;
   });
-
   var existing = allPermissions.find(function(p){ return p.user_id === uid; });
-  var res;
-  if (existing) {
-    res = await sb.from('rc_permissions').update(payload).eq('user_id', uid);
-  } else {
-    res = await sb.from('rc_permissions').insert(payload);
-  }
-
+  var res = existing
+    ? await sb.from('rc_permissions').update(payload).eq('user_id', uid)
+    : await sb.from('rc_permissions').insert(payload);
   if (res.error) { toast('Error: ' + res.error.message, 'error'); return; }
   await loadPermissions();
   toast('Permissions saved!', 'success');
   cm('m-permissions');
 }
 
-// -- Permission gate helper --------------------
 function userCan(key) {
   if (!CU) return false;
-  if (CU.is_admin || CU.is_senior) return true; // admins always can
+  if (CU.is_admin || CU.is_senior) return true;
   var perm = allPermissions.find(function(p){ return p.user_id === CU.id; });
-  if (!perm) return true; // no record = default allow
+  if (!perm) return true;
   return perm[key] !== false;
 }
 
-// -- Hook into setupUI -------------------------
+// -- Hook into setupUI
 var _origSetupUIProg = setupUI;
 setupUI = async function() {
   await _origSetupUIProg.call(this);
   await loadProgramming();
+  await loadReceiverCards();
   await loadPermissions();
 };
 
-// -- Hook into showPage ------------------------
+// -- Hook into showPage
 var _origShowPageProg = showPage;
 showPage = function(n) {
   _origShowPageProg(n);
