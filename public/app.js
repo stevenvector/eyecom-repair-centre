@@ -1073,12 +1073,12 @@ async function renderStockPage(){
           '<span style="font-family:Rajdhani,sans-serif;font-size:17px;font-weight:700;color:var(--c1)">'+s.batch+'</span>'+
           '<span style="margin-left:10px;background:rgba(168,85,247,.1);color:var(--cp);padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600">'+(s.pitch||'-')+'</span>'+
           '<div style="font-size:13px;color:var(--tp);margin-top:3px">'+s.job_name+'</div>'+
-          '<div style="font-size:12px;color:var(--tm)">'+s.client+(job?' . <a onclick="cm('m-stock-detail');viewJob(''+s.job_id+'')" style="color:var(--c1);cursor:pointer">View Job</a>':'')+'</div>'+
+          '<div style="font-size:12px;color:var(--tm)">'+s.client+(job?' . <a onclick="cm(\'m-stock-detail\');viewJob(\''+s.job_id+'\')" style="color:var(--c1);cursor:pointer">View Job</a>':'')+'</div>'+
         '</div>'+
         '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
           '<span class="bdg '+stockStatusClass(s.status)+'">'+stockStatusLabel(s.status)+'</span>'+
-          (canEdit?'<button class="btn bcyan bsm" onclick="openDispatchFor(''+s.id+'')">&#8599; Dispatch</button>'+:'')+
-          '<button class="btn bout bsm" onclick="openStockDetail(''+s.id+'')">&#128269; Detail</button>'+
+          (canEdit?'<button class="btn bcyan bsm" onclick="openDispatchFor(\''+s.id+'\')">&#8599; Dispatch</button>':'')+''+
+          '<button class="btn bout bsm" onclick="openStockDetail(\''+s.id+'\')">&#128269; Detail</button>'+
         '</div>'+
       '</div>'+
       '<div class="stock-card-body">'+
@@ -1091,7 +1091,7 @@ async function renderStockPage(){
         '<div class="stock-bar-wrap"><div class="stock-bar" style="width:'+pct+'%;background:'+barColor+'"></div></div>'+
         '<div style="font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--tm);margin-bottom:6px">Recent Dispatches</div>'+
         dispRows+
-        (allDispatches.filter(function(d){return d.stock_id===s.id;}).length>3?'<div style="font-size:12px;color:var(--c1);cursor:pointer;margin-top:6px" onclick="openStockDetail(''+s.id+'')">View all dispatches...</div>':'')+
+        (allDispatches.filter(function(d){return d.stock_id===s.id;}).length>3?'<div style="font-size:12px;color:var(--c1);cursor:pointer;margin-top:6px" onclick="openStockDetail(\''+s.id+'\')">View all dispatches...</div>':'')+
       '</div>'+
     '</div>';
   }).join('');
@@ -1284,8 +1284,8 @@ async function openStockDetail(stockId){
       }).join('')+'</div>'
     :'<div class="empty" style="padding:20px 0"><p class="etxt">No dispatches yet</p></div>')+
     '<div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">'+
-      '<button class="btn bcyan" onclick="cm('m-stock-detail');openDispatchFor(''+s.id+'')">&#8599; Dispatch Stock</button>'+
-      (job?'<button class="btn bout" onclick="cm('m-stock-detail');viewJob(''+s.job_id+'')">&#128269; View Job</button>':'')+
+      '<button class="btn bcyan" onclick="cm(\'m-stock-detail\');openDispatchFor(\''+s.id+'\')">&#8599; Dispatch Stock</button>'+
+      (job?'<button class="btn bout" onclick="cm(\'m-stock-detail\');viewJob(\''+s.job_id+'\')">&#128269; View Job</button>':'')+
     '</div>';
   om('m-stock-detail');
 }
@@ -1508,7 +1508,7 @@ function clearDmgPhoto() {
 }
 
 // -- Submit damage log -------------------------
-async async function openEditDamage(id) {
+async function openEditDamage(id) {
   var d = allDamageLogs.find(function(x){ return x.id === id; });
   if (!d) { toast('Entry not found', 'error'); return; }
 
