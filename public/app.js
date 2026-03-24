@@ -1508,7 +1508,7 @@ function clearDmgPhoto() {
 }
 
 // -- Submit damage log -------------------------
-async async function openEditDamage(id) {
+async function openEditDamage(id) {
   var d = allDamageLogs.find(function(x){ return x.id === id; });
   if (!d) { toast('Entry not found', 'error'); return; }
 
