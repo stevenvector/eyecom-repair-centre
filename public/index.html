@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Eyecom LED — Repair Centre</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%2300d4ff'/><circle cx='50' cy='50' r='20' fill='%230a0d14'/></svg>">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#00d4ff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Eyecom RC">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-96.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -336,6 +344,17 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
 .prog-rcvr-row-name{font-weight:600;font-size:13px;color:var(--c1)}
 .prog-rcvr-fw-select{background:var(--bg);border:1px solid var(--bdr);border-radius:6px;padding:6px 10px;color:var(--tp);font-size:12px;width:100%;outline:none}
 .prog-rcvr-fw-select:focus{border-color:var(--c1)}
+
+
+/* ===== PWA INSTALL BANNER ===== */
+#pwa-banner{display:none;position:fixed;bottom:calc(16px + var(--safe-bottom));left:50%;transform:translateX(-50%);z-index:500;background:var(--bgc);border:1px solid var(--bdr);border-radius:12px;padding:12px 16px;width:min(380px,92vw);box-shadow:0 8px 32px rgba(0,0,0,.5);backdrop-filter:blur(8px);flex-direction:row;align-items:center;gap:12px;animation:slideUp .3s ease}
+#pwa-banner.show{display:flex}
+@keyframes slideUp{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+#pwa-banner .pwa-ico{font-size:24px;flex-shrink:0}
+#pwa-banner .pwa-text{flex:1;min-width:0}
+#pwa-banner .pwa-text strong{display:block;color:var(--c1);font-family:Rajdhani,sans-serif;font-size:15px;font-weight:700;margin-bottom:2px}
+#pwa-banner .pwa-text span{font-size:12px;color:var(--tm)}
+.pwa-btns{display:flex;gap:6px;flex-shrink:0}
 
 </style>
 </head>
@@ -1282,6 +1301,20 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
       <button class="btn bout" onclick="cm('m-rcvr-quick-add')">Cancel</button>
       <button class="btn bcyan" onclick="submitQuickReceiverCard()">&#10003; Add Card</button>
     </div>
+  </div>
+</div>
+
+
+<!-- PWA Install Banner -->
+<div id="pwa-banner">
+  <div class="pwa-ico">&#128187;</div>
+  <div class="pwa-text">
+    <strong>Install Eyecom RC</strong>
+    <span>Add to home screen for the best experience</span>
+  </div>
+  <div class="pwa-btns">
+    <button class="btn bcyan bsm" onclick="installPWA()">Install</button>
+    <button class="btn bout bsm" onclick="dismissPWA()">&#215;</button>
   </div>
 </div>
 

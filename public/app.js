@@ -145,8 +145,39 @@ async function loadSessions(){var{data}=await sb.from('rc_work_sessions').select
 function setupRealtime(){
   var sc2=sb.channel('rc_ws_ch').on('postgres_changes',{event:'*',schema:'public',table:'rc_work_sessions'},async function(){await loadJobs();refreshActivePage();refreshAllTables();updateActiveNB();if(sessJid)refreshSessOthers();}).subscribe();
   var jc=sb.channel('rc_j_ch').on('postgres_changes',{event:'*',schema:'public',table:'rc_jobs'},async function(){await loadJobs();refreshAllTables();}).subscribe();
-  var lc=sb.channel('rc_l_ch').on('postgres_changes',{event:'*',schema:'public',table:'rc_work_logs'},async function(){await loadLogs();renderWLPage();}).subscribe();
-  rtChannels=[sc2,jc,lc];
+  var lc = sb.channel('rc_l_ch')
+    .on('postgres_changes',{event:'*',schema:'public',table:'rc_work_logs'}, async function(){
+      await loadLogs(); renderWLPage();
+    }).subscribe();
+
+  // Damage logs - update damage page if open
+  var dc = sb.channel('rc_dmg_ch')
+    .on('postgres_changes',{event:'*',schema:'public',table:'rc_damage_logs'}, async function(){
+      await loadDamageLogs();
+      if (document.getElementById('page-damage').classList.contains('active')) renderDamagePage();
+    }).subscribe();
+
+  // Stock changes - update stock page if open
+  var stc = sb.channel('rc_stk_ch')
+    .on('postgres_changes',{event:'*',schema:'public',table:'rc_stock'}, async function(){
+      await loadStock();
+      if (document.getElementById('page-stock').classList.contains('active')) renderStockPage();
+    }).subscribe();
+
+  // Requests - update notification badge
+  var rqc = sb.channel('rc_rq_ch')
+    .on('postgres_changes',{event:'*',schema:'public',table:'rc_requests'}, async function(){
+      await loadReqs(); updateNBReqs();
+    }).subscribe();
+
+  // Programming records - update programming page if open
+  var pgc = sb.channel('rc_pg_ch')
+    .on('postgres_changes',{event:'*',schema:'public',table:'rc_programming'}, async function(){
+      await loadProgramming();
+      if (document.getElementById('page-programming').classList.contains('active')) renderProgrammingPage();
+    }).subscribe();
+
+  rtChannels = [sc2, jc, lc, dc, stc, rqc, pgc];
 }
 
 // ==============================================
@@ -1331,6 +1362,79 @@ function hardReset(){
 
 
 // ==============================================
+//  PWA - Service Worker + Install Banner
+// ==============================================
+var _pwaPrompt = null;
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js')
+      .then(function(reg) {
+        reg.addEventListener('updatefound', function() {
+          var nw = reg.installing;
+          nw.addEventListener('statechange', function() {
+            if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+              toast('App update available - refresh to apply', 'info');
+            }
+          });
+        });
+      })
+      .catch(function(err) { console.warn('SW registration failed:', err); });
+  });
+}
+
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault();
+  _pwaPrompt = e;
+  if (!localStorage.getItem('pwa_dismissed')) {
+    setTimeout(function() {
+      var b = document.getElementById('pwa-banner');
+      if (b) b.classList.add('show');
+    }, 3000);
+  }
+});
+
+window.addEventListener('appinstalled', function() {
+  _pwaPrompt = null;
+  var b = document.getElementById('pwa-banner');
+  if (b) b.classList.remove('show');
+  localStorage.setItem('pwa_dismissed', '1');
+  toast('Eyecom RC installed!', 'success');
+});
+
+function installPWA() {
+  var b = document.getElementById('pwa-banner');
+  if (b) b.classList.remove('show');
+  if (_pwaPrompt) {
+    _pwaPrompt.prompt();
+    _pwaPrompt.userChoice.then(function(r) {
+      if (r.outcome === 'accepted') toast('Installing...', 'success');
+      _pwaPrompt = null;
+    });
+  }
+}
+
+function dismissPWA() {
+  var b = document.getElementById('pwa-banner');
+  if (b) b.classList.remove('show');
+  localStorage.setItem('pwa_dismissed', '1');
+}
+
+(function() {
+  var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent.toLowerCase());
+  var isStandalone = window.navigator.standalone === true;
+  if (isIOS && !isStandalone && !localStorage.getItem('pwa_dismissed')) {
+    setTimeout(function() {
+      var b = document.getElementById('pwa-banner');
+      if (!b) return;
+      var sp = b.querySelector('.pwa-text span');
+      if (sp) sp.textContent = 'Tap Share then "Add to Home Screen"';
+      b.classList.add('show');
+    }, 4000);
+  }
+})();
+
+// ==============================================
 //  DAMAGE LOG SYSTEM
 // ==============================================
 var allDamageLogs = [];
@@ -1507,7 +1611,7 @@ function clearDmgPhoto() {
   document.getElementById('dmg-photo-input').value = '';
 }
 
-// -- Submit damage log -------------------------
+// -- Open edit damage modal -------------------
 async function openEditDamage(id) {
   var d = allDamageLogs.find(function(x){ return x.id === id; });
   if (!d) { toast('Entry not found', 'error'); return; }
@@ -2627,14 +2731,25 @@ async function submitQuickReceiverCard() {
     created_by:   CU.id
   }).select().single();
   if (res.error) { toast('Error: ' + res.error.message, 'error'); return; }
+
+  var newCard = res.data;
   await loadReceiverCards();
-  // Refresh the receiver card dropdown in the programming modal
   populateRcvrCardSelect();
-  // Select the new card
-  var sel = document.getElementById('prog-rcvr-card');
-  if (sel && res.data) sel.value = res.data.id;
+
+  // Immediately add the new card to the current batch
+  if (newCard) addRcvrCardRow(newCard.id, null);
+
   cm('m-rcvr-quick-add');
-  toast('Receiver card added!', 'success');
+  toast(name + ' added and selected. Upload firmware from the card row below.', 'success');
+
+  // After a short delay, offer to go to firmware upload
+  if (newCard) {
+    setTimeout(function() {
+      if (confirm('Upload firmware for ' + newCard.name + ' now?')) {
+        openReceiverCardDetail(newCard.id);
+      }
+    }, 350);
+  }
 }
 
 
