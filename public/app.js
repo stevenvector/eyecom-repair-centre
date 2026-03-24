@@ -1508,7 +1508,7 @@ function clearDmgPhoto() {
 }
 
 // -- Submit damage log -------------------------
-async function openEditDamage(id) {
+async async function openEditDamage(id) {
   var d = allDamageLogs.find(function(x){ return x.id === id; });
   if (!d) { toast('Entry not found', 'error'); return; }
 
@@ -2362,7 +2362,7 @@ function switchProgTab(tab) {
 async function renderProgrammingPage() {
   var isPriv = CU && (CU.is_admin || CU.is_senior);
   var adminBtns = document.getElementById('prog-admin-btns');
-  if (adminBtns) adminBtns.style.display = isPriv ? 'flex' : 'none';
+  if (adminBtns) adminBtns.style.display = (isPriv || userCan('can_add_programming_records') || userCan('can_upload_programming_files')) ? 'flex' : 'none';
 
   await loadProgramming();
   await loadReceiverCards();
@@ -2403,9 +2403,11 @@ function renderBatchTab(search, isPriv) {
     var rcfgxBtn = p.rcfgx_url
       ? '<a href="' + p.rcfgx_url + '" download="' + (p.rcfgx_name||'config.rcfgx') + '" class="file-dl-btn">&#8659; RCFGX<span style="font-size:10px;color:var(--tm);margin-left:4px">' + fmtFileSize(p.rcfgx_size) + '</span></a>'
       : '<span class="file-dl-btn no-file">&#8659; RCFGX</span>';
-    var adminBtns2 = isPriv
-      ? '<button class="btn bcyan bsm" onclick="openEditProgramming(\'' + p.id + '\')">&#9998; Edit</button>' +
-        '<button class="btn bdanger bsm" onclick="deleteProgramming(\'' + p.id + '\')">&#128465;</button>'
+    var canEditProg   = isPriv || userCan('can_edit_programming_records');
+    var canDeleteProg = isPriv || userCan('can_delete_programming_records');
+    var adminBtns2 = (canEditProg || canDeleteProg)
+      ? (canEditProg   ? '<button class="btn bcyan bsm" onclick="openEditProgramming(\'' + p.id + '\')">&#9998; Edit</button>' : '') +
+        (canDeleteProg ? '<button class="btn bdanger bsm" onclick="deleteProgramming(\'' + p.id + '\')">&#128465;</button>' : '')
       : '';
     return '<div class="prog-card">' +
       '<div class="prog-card-hd">' +
@@ -2444,7 +2446,7 @@ function renderReceiverCardsTab(search, isPriv) {
   if (!cards.length) {
     document.getElementById('prog-content').innerHTML =
       '<div class="empty"><div class="eico">&#128190;</div><p class="etxt">No receiver cards found</p>' +
-      (isPriv ? '<button class="btn bcyan" onclick="openAddReceiverCard()" style="margin-top:12px">+ Add First Receiver Card</button>' : '') +
+      ((isPriv || userCan('can_add_programming_records')) ? '<button class="btn bcyan" onclick="openAddReceiverCard()" style="margin-top:12px">+ Add First Receiver Card</button>' : '') +
       '</div>';
     return;
   }
@@ -2463,10 +2465,12 @@ function renderReceiverCardsTab(search, isPriv) {
           (c.max_pixels_w ? '<span class="prog-chip-item">' + c.max_pixels_w + ' x ' + c.max_pixels_h + ' px</span>' : '') +
           '<span class="prog-chip-item" style="background:rgba(168,85,247,.08);color:var(--cp)">' + batchCount + ' batch' + (batchCount!==1?'es':'') + '</span>' +
         '</div>' +
-        (isPriv ? '<div style="display:flex;gap:6px">' +
-          '<button class="btn bcyan bsm" onclick="openEditReceiverCard(\'' + c.id + '\')">&#9998; Edit</button>' +
-          '<button class="btn bdanger bsm" onclick="deleteReceiverCard(\'' + c.id + '\')">&#128465;</button>' +
-        '</div>' : '') +
+        ((isPriv || userCan('can_edit_programming_records') || userCan('can_delete_programming_records'))
+          ? '<div style="display:flex;gap:6px">' +
+              ((isPriv || userCan('can_edit_programming_records'))   ? '<button class="btn bcyan bsm" onclick="openEditReceiverCard(\'' + c.id + '\')">&#9998; Edit</button>' : '') +
+              ((isPriv || userCan('can_delete_programming_records')) ? '<button class="btn bdanger bsm" onclick="deleteReceiverCard(\'' + c.id + '\')">&#128465;</button>' : '') +
+            '</div>'
+          : '') +
       '</div>' +
       '<div class="prog-card-bd">' +
         '<button class="file-dl-btn" onclick="openReceiverCardDetail(\'' + c.id + '\')">&#128187; View Firmware (' + c.id + ')</button>' +
@@ -2508,8 +2512,8 @@ async function renderReceiverCardsList() {
         '</div>' +
         '<div style="display:flex;gap:6px">' +
           '<button class="btn bcyan bsm" onclick="openReceiverCardDetail(\'' + c.id + '\')">&#128187; Firmware</button>' +
-          '<button class="btn bout bsm" onclick="openEditReceiverCard(\'' + c.id + '\')">&#9998;</button>' +
-          '<button class="btn bdanger bsm" onclick="deleteReceiverCard(\'' + c.id + '\')">&#128465;</button>' +
+          (isPriv || userCan('can_edit_programming_records')   ? '<button class="btn bout bsm" onclick="openEditReceiverCard(\'' + c.id + '\')">&#9998;</button>' : '') +
+          (isPriv || userCan('can_delete_programming_records') ? '<button class="btn bdanger bsm" onclick="deleteReceiverCard(\'' + c.id + '\')">&#128465;</button>' : '') +
         '</div>' +
       '</div>' +
     '</div>';
@@ -2637,7 +2641,7 @@ async function openReceiverCardDetail(cardId) {
   if (!c) return;
   var isPriv = CU && (CU.is_admin || CU.is_senior);
   document.getElementById('rcvr-detail-title').textContent = c.name;
-  document.getElementById('rcvr-add-fw-btn').style.display = isPriv ? '' : 'none';
+  document.getElementById('rcvr-add-fw-btn').style.display = (isPriv || userCan('can_upload_programming_files')) ? '' : 'none';
   document.getElementById('rcvr-fw-upload-form').style.display = 'none';
   document.getElementById('rcvr-detail-info').innerHTML =
     '<div class="damage-meta-grid">' +
@@ -2676,7 +2680,7 @@ async function renderFirmwareList(cardId) {
       '</div>' +
       '<div style="display:flex;gap:6px;align-items:center">' +
         '<a href="' + f.file_url + '" download="' + escHtml(f.file_name) + '" class="file-dl-btn">&#8659; Download</a>' +
-        (isPriv ? '<button class="btn bdanger bsm" onclick="deleteFirmware(\'' + f.id + '\',\'' + f.file_name + '\')">&#128465;</button>' : '') +
+        ((isPriv || userCan('can_delete_programming_records')) ? '<button class="btn bdanger bsm" onclick="deleteFirmware(\'' + f.id + '\',\'' + f.file_name + '\')">&#128465;</button>' : '') +
       '</div>' +
     '</div>';
   }).join('');
@@ -2763,6 +2767,9 @@ async function openAddProgramming() {
   populateRcvrCardSelect();
   document.getElementById('prog-rcvr-card').value = '';
   await buildTechCheckboxes(null);
+  var _canUpload = (CU && (CU.is_admin || CU.is_senior)) || userCan('can_upload_programming_files');
+  var _rcfgxSection = document.getElementById('prog-rcfgx-zone') && document.getElementById('prog-rcfgx-zone').closest('.fg2');
+  if (_rcfgxSection) _rcfgxSection.style.display = _canUpload ? '' : 'none';
   om('m-programming');
 }
 
@@ -2946,6 +2953,12 @@ var PERM_DEFS = {
     {key:'can_view_reports',     label:'View Reports',      sub:'Access reports & PDF export'},
     {key:'can_view_all_jobs',    label:'View All Jobs',     sub:'See jobs not assigned to them'},
   ],
+  programming: [
+    {key:'can_upload_programming_files',   label:'Upload Files',          sub:'Upload RCFGX and firmware files'},
+    {key:'can_add_programming_records',    label:'Add Batch Records',     sub:'Create new batch / receiver card records'},
+    {key:'can_edit_programming_records',   label:'Edit Records',          sub:'Modify existing batch and receiver card records'},
+    {key:'can_delete_programming_records', label:'Delete Records',        sub:'Remove batch records, receiver cards and firmware'},
+  ],
   actions: [
     {key:'can_start_sessions',  label:'Start Work Sessions', sub:'Log time on jobs'},
     {key:'can_log_damage',      label:'Log Damage',          sub:'Create damage entries'},
@@ -2970,9 +2983,12 @@ async function loadPermissionsForUser() {
   var perm = allPermissions.find(function(p){ return p.user_id === uid; });
   var vals = perm || {
     can_view_programming:true, can_view_stock:true, can_view_damage_log:true,
-    can_view_reports:false, can_view_all_jobs:true, can_start_sessions:true,
-    can_log_damage:true, can_edit_damage:true, can_dispatch_stock:false,
-    can_export_pdf:false, can_view_other_sessions:false, can_view_client_info:true
+    can_view_reports:false, can_view_all_jobs:true,
+    can_upload_programming_files:true, can_add_programming_records:false,
+    can_edit_programming_records:false, can_delete_programming_records:false,
+    can_start_sessions:true, can_log_damage:true, can_edit_damage:true,
+    can_dispatch_stock:false, can_export_pdf:false,
+    can_view_other_sessions:false, can_view_client_info:true
   };
   function buildGrid(defs, containerId) {
     document.getElementById(containerId).innerHTML = defs.map(function(d) {
@@ -2983,9 +2999,10 @@ async function loadPermissionsForUser() {
       '</div>';
     }).join('');
   }
-  buildGrid(PERM_DEFS.access,  'perm-grid-access');
-  buildGrid(PERM_DEFS.actions, 'perm-grid-actions');
-  buildGrid(PERM_DEFS.data,    'perm-grid-data');
+  buildGrid(PERM_DEFS.access,       'perm-grid-access');
+  buildGrid(PERM_DEFS.programming,  'perm-grid-programming');
+  buildGrid(PERM_DEFS.actions,      'perm-grid-actions');
+  buildGrid(PERM_DEFS.data,         'perm-grid-data');
   document.getElementById('perm-body').style.display  = '';
   document.getElementById('perm-empty').style.display = 'none';
   document.getElementById('perm-footer').style.display = '';
