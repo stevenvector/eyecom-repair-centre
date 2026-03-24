@@ -1508,7 +1508,7 @@ function clearDmgPhoto() {
 }
 
 // -- Submit damage log -------------------------
-async function openEditDamage(id) {
+async async function openEditDamage(id) {
   var d = allDamageLogs.find(function(x){ return x.id === id; });
   if (!d) { toast('Entry not found', 'error'); return; }
 
@@ -2318,6 +2318,20 @@ async function loadProgramming() {
   var isPriv = CU && (CU.is_admin || CU.is_senior);
   var res = await sb.from('rc_programming').select('*').order('batch_number');
   var all = res.data || [];
+  // Attach receiver card links to each programming record
+  var rcvrLinksRes = await sb.from('rc_programming_receiver_cards')
+    .select('programming_id, receiver_card_id, firmware_id');
+  var allRcvrLinks = rcvrLinksRes.data || [];
+  all.forEach(function(p) {
+    p._rcvr_cards = allRcvrLinks
+      .filter(function(l){ return l.programming_id === p.id; })
+      .map(function(l){
+        var card = allReceiverCards.find(function(c){ return c.id === l.receiver_card_id; });
+        return card ? Object.assign({}, card, {_firmware_id: l.firmware_id}) : null;
+      })
+      .filter(Boolean);
+  });
+
   if (!isPriv) {
     var vres = await sb.from('rc_programming_visibility').select('programming_id').eq('user_id', CU.id);
     var allowed = new Set((vres.data || []).map(function(v){ return v.programming_id; }));
@@ -2399,7 +2413,7 @@ function renderBatchTab(search, isPriv) {
 
   document.getElementById('prog-content').innerHTML = items.map(function(p) {
     var creator  = allUsers.find(function(u){ return u.id === p.created_by; });
-    var rcvr     = allReceiverCards.find(function(c){ return c.id === p.receiver_card_id; });
+    var rcvrLinks = (p._rcvr_cards || []);
     var rcfgxBtn = p.rcfgx_url
       ? '<a href="' + p.rcfgx_url + '" download="' + (p.rcfgx_name||'config.rcfgx') + '" class="file-dl-btn">&#8659; RCFGX<span style="font-size:10px;color:var(--tm);margin-left:4px">' + fmtFileSize(p.rcfgx_size) + '</span></a>'
       : '<span class="file-dl-btn no-file">&#8659; RCFGX</span>';
@@ -2421,13 +2435,13 @@ function renderBatchTab(search, isPriv) {
         '<div class="prog-chips">' +
           '<span class="prog-chip-item">Driver: ' + escHtml(p.driver_chip) + '</span>' +
           '<span class="prog-chip-item">Decoder: ' + escHtml(p.decoder_chip) + '</span>' +
-          (rcvr ? '<span class="prog-chip-item" style="background:rgba(0,255,136,.08);color:var(--cg);border-color:rgba(0,255,136,.2)">&#128190; ' + escHtml(rcvr.name) + '</span>' : '') +
+          (rcvrLinks.length ? rcvrLinks.map(function(c){ return '<span class="prog-chip-item" style="background:rgba(0,255,136,.08);color:var(--cg);border-color:rgba(0,255,136,.2)">&#128190; ' + escHtml(c.name) + '</span>'; }).join('') : '') +
         '</div>' +
         '<div style="display:flex;gap:6px">' + adminBtns2 + '</div>' +
       '</div>' +
       '<div class="prog-card-bd">' +
         rcfgxBtn +
-        (rcvr ? '<button class="file-dl-btn" onclick="openReceiverCardDetail(\'' + rcvr.id + '\')">&#128190; ' + escHtml(rcvr.name) + ' Firmware</button>' : '') +
+        rcvrLinks.map(function(c){ return '<button class="file-dl-btn" onclick="openReceiverCardDetail(\'' + c.id + '\')">&#128190; ' + escHtml(c.name) + ' Firmware</button>'; }).join('') +
         (p.notes ? '<span style="font-size:12px;color:var(--tm);margin-left:8px">' + escHtml(p.notes) + '</span>' : '') +
       '</div>' +
     '</div>';
@@ -2452,7 +2466,7 @@ function renderReceiverCardsTab(search, isPriv) {
   }
 
   document.getElementById('prog-content').innerHTML = cards.map(function(c) {
-    var batchCount = allProgramming.filter(function(p){ return p.receiver_card_id === c.id; }).length;
+    var batchCount = allProgramming.filter(function(p){ return (p._rcvr_cards||[]).some(function(rc){ return rc.id === c.id; }); }).length;
     return '<div class="prog-card">' +
       '<div class="prog-card-hd">' +
         '<div>' +
@@ -2501,7 +2515,7 @@ async function renderReceiverCardsList() {
     return;
   }
   cont.innerHTML = allReceiverCards.map(function(c) {
-    var batchCount = allProgramming.filter(function(p){ return p.receiver_card_id === c.id; }).length;
+    var batchCount = allProgramming.filter(function(p){ return (p._rcvr_cards||[]).some(function(rc){ return rc.id === c.id; }); }).length;
     return '<div class="prog-card" style="margin-bottom:8px">' +
       '<div class="prog-card-hd">' +
         '<div><div class="prog-batch">' + escHtml(c.name) + '</div>' +
@@ -2623,16 +2637,271 @@ async function submitQuickReceiverCard() {
   toast('Receiver card added!', 'success');
 }
 
+
+//    Multi-receiver-card state                                              
+// _progRcvrRows = [{receiver_card_id, firmware_id, notes}]
+var _progRcvrRows = [];
+
 function populateRcvrCardSelect() {
-  var sel = document.getElementById('prog-rcvr-card');
+  // Populate the "add card" dropdown (exclude cards already added)
+  var sel = document.getElementById('prog-rcvr-add-select');
   if (!sel) return;
-  var cur = sel.value;
-  sel.innerHTML = '<option value="">None / Not specified</option>' +
-    allReceiverCards.map(function(c){
-      return '<option value="' + c.id + '">' + c.name + (c.manufacturer?' - '+c.manufacturer:'') + '</option>';
-    }).join('');
-  if (cur) sel.value = cur;
+  var usedIds = _progRcvrRows.map(function(r){ return r.receiver_card_id; });
+  sel.innerHTML = '<option value="">Select a receiver card to add...</option>' +
+    allReceiverCards
+      .filter(function(c){ return usedIds.indexOf(c.id) < 0; })
+      .map(function(c){
+        return '<option value="' + c.id + '">' + c.name +
+          (c.manufacturer ? ' - ' + c.manufacturer : '') + '</option>';
+      }).join('');
 }
+
+function addRcvrCardRow(cardId, firmwareId) {
+  var sel = document.getElementById('prog-rcvr-add-select');
+  var id  = cardId || (sel && sel.value);
+  if (!id) { toast('Select a receiver card first', 'error'); return; }
+  // Prevent duplicates
+  if (_progRcvrRows.find(function(r){ return r.receiver_card_id === id; })) {
+    toast('That receiver card is already added', 'info');
+    return;
+  }
+  _progRcvrRows.push({ receiver_card_id: id, firmware_id: firmwareId || null });
+  if (sel) sel.value = '';
+  renderRcvrCardRows();
+  populateRcvrCardSelect();
+}
+
+function removeRcvrCardRow(cardId) {
+  _progRcvrRows = _progRcvrRows.filter(function(r){ return r.receiver_card_id !== cardId; });
+  renderRcvrCardRows();
+  populateRcvrCardSelect();
+}
+
+async function renderRcvrCardRows() {
+  var cont = document.getElementById('prog-rcvr-cards-list');
+  if (!cont) return;
+  if (!_progRcvrRows.length) {
+    cont.innerHTML = '<div style="font-size:12px;color:var(--tm);padding:4px 0">No receiver cards added yet.</div>';
+    return;
+  }
+  // Build rows - for each card fetch its firmware versions
+  var rows = await Promise.all(_progRcvrRows.map(async function(row) {
+    var card = allReceiverCards.find(function(c){ return c.id === row.receiver_card_id; });
+    if (!card) return '';
+    // Get firmware versions for this card
+    var fwRes = await sb.from('rc_receiver_card_firmware')
+      .select('id,version,is_latest,description')
+      .eq('receiver_card_id', row.receiver_card_id)
+      .order('uploaded_at', {ascending:false});
+    var fwList = fwRes.data || [];
+    var fwOptions = '<option value="">No specific version</option>' +
+      fwList.map(function(f){
+        return '<option value="' + f.id + '"' +
+          (f.id === row.firmware_id ? ' selected' : '') +
+          '>' + f.version + (f.is_latest ? ' (Latest)' : '') +
+          (f.description ? ' - ' + f.description.slice(0,40) : '') + '</option>';
+      }).join('');
+    return '<div class="prog-rcvr-row" data-card-id="' + card.id + '">' +
+      '<div class="prog-rcvr-row-hd">' +
+        '<span class="prog-rcvr-row-name">&#128190; ' + escHtml(card.name) +
+          (card.manufacturer ? '<span style="font-weight:400;color:var(--tm);font-size:11px;margin-left:6px">' + escHtml(card.manufacturer) + '</span>' : '') +
+        '</span>' +
+        '<button class="btn bdanger bsm" onclick="removeRcvrCardRow(\'' + card.id + '\')" title="Remove">&#10005;</button>' +
+      '</div>' +
+      (fwList.length ?
+        '<div>' +
+          '<div style="font-size:11px;color:var(--tm);margin-bottom:4px">Firmware version for this batch:</div>' +
+          '<select class="prog-rcvr-fw-select" data-card-id="' + card.id + '" onchange="updateRcvrFirmware(\'' + card.id + '\',this.value)">' +
+          fwOptions +
+          '</select>' +
+        '</div>'
+      : '<div style="font-size:11px;color:var(--tm)">No firmware uploaded for this card yet. ' +
+          '<a style="color:var(--c1);cursor:pointer" onclick="openReceiverCardDetail(\'' + card.id + '\')">Upload firmware</a>' +
+        '</div>'
+      ) +
+    '</div>';
+  }));
+  cont.innerHTML = rows.join('');
+}
+
+function updateRcvrFirmware(cardId, firmwareId) {
+  var row = _progRcvrRows.find(function(r){ return r.receiver_card_id === cardId; });
+  if (row) row.firmware_id = firmwareId || null;
+}
+
+async function openAddProgramming() {
+  document.getElementById('prog-edit-id').value = '';
+  document.getElementById('prog-modal-title').textContent = 'Add Batch Record';
+  document.getElementById('prog-submit-btn').textContent  = 'Save Record';
+  ['prog-batch','prog-driver','prog-decoder','prog-notes'].forEach(function(id){
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('prog-pitch').value = '';
+  _progRcfgxFile = null; _progRcfgxKeep = true;
+  resetProgFileZone('rcfgx');
+  document.getElementById('prog-rcfgx-existing').style.display = 'none';
+  _progRcvrRows = [];
+  populateRcvrCardSelect();
+  await renderRcvrCardRows();
+
+  // Visibility: only show for admins/seniors
+  var isPriv = CU && (CU.is_admin || CU.is_senior);
+  var visSection = document.getElementById('prog-visibility-section');
+  if (visSection) visSection.style.display = isPriv ? '' : 'none';
+  if (isPriv) await buildTechCheckboxes(null);
+
+  var _canUpload = isPriv || userCan('can_upload_programming_files');
+  var _rcfgxSection = document.getElementById('prog-rcfgx-zone') &&
+    document.getElementById('prog-rcfgx-zone').closest('.fg2');
+  if (_rcfgxSection) _rcfgxSection.style.display = _canUpload ? '' : 'none';
+  om('m-programming');
+}
+
+async function openEditProgramming(id) {
+  var p = allProgramming.find(function(x){ return x.id === id; });
+  if (!p) return;
+  document.getElementById('prog-edit-id').value = id;
+  document.getElementById('prog-modal-title').textContent = 'Edit Batch Record';
+  document.getElementById('prog-submit-btn').textContent  = 'Save Changes';
+  document.getElementById('prog-batch').value   = p.batch_number || '';
+  document.getElementById('prog-pitch').value   = p.pitch        || '';
+  document.getElementById('prog-driver').value  = p.driver_chip  || '';
+  document.getElementById('prog-decoder').value = p.decoder_chip || '';
+  document.getElementById('prog-notes').value   = p.notes        || '';
+  _progRcfgxFile = null; _progRcfgxKeep = true;
+  resetProgFileZone('rcfgx');
+  document.getElementById('prog-rcfgx-existing').style.display = 'none';
+  if (p.rcfgx_name) {
+    document.getElementById('prog-rcfgx-label').textContent = p.rcfgx_name;
+    document.getElementById('prog-rcfgx-zone').classList.add('has-file');
+    document.getElementById('prog-rcfgx-existing').style.display = '';
+    document.getElementById('prog-rcfgx-existing').innerHTML =
+      'Current: <strong>' + p.rcfgx_name + '</strong> (' + fmtFileSize(p.rcfgx_size) + ') ' +
+      '<button class="btn bdanger bsm" onclick="clearProgFile(\'rcfgx\')">Remove</button>';
+  }
+
+  // Load existing receiver card links for this batch
+  var linkRes = await sb.from('rc_programming_receiver_cards')
+    .select('receiver_card_id, firmware_id')
+    .eq('programming_id', id);
+  _progRcvrRows = (linkRes.data || []).map(function(r){
+    return { receiver_card_id: r.receiver_card_id, firmware_id: r.firmware_id || null };
+  });
+  populateRcvrCardSelect();
+  await renderRcvrCardRows();
+
+  // Visibility: only show for admins/seniors
+  var isPriv = CU && (CU.is_admin || CU.is_senior);
+  var visSection = document.getElementById('prog-visibility-section');
+  if (visSection) visSection.style.display = isPriv ? '' : 'none';
+  if (isPriv) {
+    var vres = await sb.from('rc_programming_visibility').select('user_id').eq('programming_id', id);
+    await buildTechCheckboxes((vres.data||[]).map(function(v){ return v.user_id; }));
+  }
+
+  var _canUpload = isPriv || userCan('can_upload_programming_files');
+  var _rcfgxSection = document.getElementById('prog-rcfgx-zone') &&
+    document.getElementById('prog-rcfgx-zone').closest('.fg2');
+  if (_rcfgxSection) _rcfgxSection.style.display = _canUpload ? '' : 'none';
+  om('m-programming');
+}
+
+async function submitProgramming() {
+  var editId  = document.getElementById('prog-edit-id').value.trim();
+  var isEdit  = editId.length > 0;
+  var batch   = document.getElementById('prog-batch').value.trim();
+  var driver  = document.getElementById('prog-driver').value.trim();
+  var decoder = document.getElementById('prog-decoder').value.trim();
+  if (!batch)   { toast('Batch number is required', 'error'); return; }
+  if (!driver)  { toast('Driver chip is required',  'error'); return; }
+  if (!decoder) { toast('Decoder chip is required', 'error'); return; }
+
+  var btn = document.getElementById('prog-submit-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Saving...';
+
+  try {
+    var existing = isEdit ? allProgramming.find(function(x){ return x.id === editId; }) : null;
+
+    // Upload RCFGX if new file selected
+    var rcfgxUrl  = isEdit ? (existing||{}).rcfgx_url  : null;
+    var rcfgxName = isEdit ? (existing||{}).rcfgx_name : null;
+    var rcfgxSize = isEdit ? (existing||{}).rcfgx_size : null;
+    if (_progRcfgxFile) {
+      if (isEdit && rcfgxName) await sb.storage.from('programming-files').remove([rcfgxName]);
+      var fn = 'prog-rcfgx-' + Date.now() + '-' + _progRcfgxFile.name;
+      var up = await sb.storage.from('programming-files').upload(fn, _progRcfgxFile,
+        {contentType:'application/octet-stream', upsert:false});
+      if (!up.error) {
+        rcfgxUrl  = sb.storage.from('programming-files').getPublicUrl(fn).data.publicUrl;
+        rcfgxName = fn; rcfgxSize = _progRcfgxFile.size;
+      } else { toast('RCFGX upload failed: ' + up.error.message, 'error'); }
+    } else if (!_progRcfgxKeep && isEdit && rcfgxName) {
+      await sb.storage.from('programming-files').remove([rcfgxName]);
+      rcfgxUrl = null; rcfgxName = null; rcfgxSize = null;
+    }
+
+    var payload = {
+      batch_number: batch,
+      pitch:        document.getElementById('prog-pitch').value || null,
+      driver_chip:  driver,
+      decoder_chip: decoder,
+      notes:        document.getElementById('prog-notes').value.trim() || null,
+      rcfgx_url:    rcfgxUrl, rcfgx_name: rcfgxName, rcfgx_size: rcfgxSize,
+      updated_at:   new Date().toISOString()
+    };
+
+    var res;
+    if (isEdit) {
+      res = await sb.from('rc_programming').update(payload).eq('id', editId);
+    } else {
+      payload.created_by = CU.id;
+      res = await sb.from('rc_programming').insert(payload).select().single();
+    }
+    if (res.error) { toast('Error: ' + res.error.message, 'error'); return; }
+
+    var progId = isEdit ? editId : (res.data||{}).id;
+
+    // Save receiver card links (replace all)
+    if (progId) {
+      await sb.from('rc_programming_receiver_cards').delete().eq('programming_id', progId);
+      if (_progRcvrRows.length) {
+        await sb.from('rc_programming_receiver_cards').insert(
+          _progRcvrRows.map(function(r){
+            return {
+              programming_id:   progId,
+              receiver_card_id: r.receiver_card_id,
+              firmware_id:      r.firmware_id || null
+            };
+          })
+        );
+      }
+
+      // Save visibility (admin/senior only)
+      var isPriv = CU && (CU.is_admin || CU.is_senior);
+      if (isPriv) {
+        await sb.from('rc_programming_visibility').delete().eq('programming_id', progId);
+        var checks = Array.from(
+          document.querySelectorAll('#prog-tech-checkboxes input[type=checkbox]:checked')
+        );
+        if (checks.length) {
+          await sb.from('rc_programming_visibility').insert(
+            checks.map(function(c){
+              return {programming_id: progId, user_id: c.value, granted_by: CU.id};
+            })
+          );
+        }
+      }
+    }
+
+    cm('m-programming');
+    toast(isEdit ? 'Record updated!' : 'Record added!', 'success');
+    await renderProgrammingPage();
+  } finally {
+    btn.disabled = false;
+    btn.textContent = document.getElementById('prog-edit-id').value ? 'Save Changes' : 'Save Record';
+  }
+}
+
 
 //    Receiver card detail + firmware                                       
 async function openReceiverCardDetail(cardId) {
@@ -2753,54 +3022,9 @@ async function deleteFirmware(id, fileName) {
 }
 
 //    Programming modal open/edit                                            
-async function openAddProgramming() {
-  document.getElementById('prog-edit-id').value = '';
-  document.getElementById('prog-modal-title').textContent = 'Add Batch Record';
-  document.getElementById('prog-submit-btn').textContent  = 'Save Record';
-  ['prog-batch','prog-driver','prog-decoder','prog-notes'].forEach(function(id){
-    document.getElementById(id).value = '';
-  });
-  document.getElementById('prog-pitch').value = '';
-  _progRcfgxFile = null; _progRcfgxKeep = true;
-  resetProgFileZone('rcfgx');
-  document.getElementById('prog-rcfgx-existing').style.display = 'none';
-  populateRcvrCardSelect();
-  document.getElementById('prog-rcvr-card').value = '';
-  await buildTechCheckboxes(null);
-  var _canUpload = (CU && (CU.is_admin || CU.is_senior)) || userCan('can_upload_programming_files');
-  var _rcfgxSection = document.getElementById('prog-rcfgx-zone') && document.getElementById('prog-rcfgx-zone').closest('.fg2');
-  if (_rcfgxSection) _rcfgxSection.style.display = _canUpload ? '' : 'none';
-  om('m-programming');
-}
 
-async function openEditProgramming(id) {
-  var p = allProgramming.find(function(x){ return x.id === id; });
-  if (!p) return;
-  document.getElementById('prog-edit-id').value = id;
-  document.getElementById('prog-modal-title').textContent = 'Edit Batch Record';
-  document.getElementById('prog-submit-btn').textContent  = 'Save Changes';
-  document.getElementById('prog-batch').value   = p.batch_number || '';
-  document.getElementById('prog-pitch').value   = p.pitch        || '';
-  document.getElementById('prog-driver').value  = p.driver_chip  || '';
-  document.getElementById('prog-decoder').value = p.decoder_chip || '';
-  document.getElementById('prog-notes').value   = p.notes        || '';
-  _progRcfgxFile = null; _progRcfgxKeep = true;
-  resetProgFileZone('rcfgx');
-  document.getElementById('prog-rcfgx-existing').style.display = 'none';
-  if (p.rcfgx_name) {
-    document.getElementById('prog-rcfgx-label').textContent = p.rcfgx_name;
-    document.getElementById('prog-rcfgx-zone').classList.add('has-file');
-    document.getElementById('prog-rcfgx-existing').style.display = '';
-    document.getElementById('prog-rcfgx-existing').innerHTML =
-      'Current: <strong>' + p.rcfgx_name + '</strong> (' + fmtFileSize(p.rcfgx_size) + ') ' +
-      '<button class="btn bdanger bsm" onclick="clearProgFile(\'rcfgx\')">Remove</button>';
-  }
-  populateRcvrCardSelect();
-  document.getElementById('prog-rcvr-card').value = p.receiver_card_id || '';
-  var vres = await sb.from('rc_programming_visibility').select('user_id').eq('programming_id', id);
-  await buildTechCheckboxes((vres.data||[]).map(function(v){ return v.user_id; }));
-  om('m-programming');
-}
+
+
 
 function resetProgFileZone(type) {
   var zone = document.getElementById('prog-rcfgx-zone');
@@ -2839,79 +3063,7 @@ async function buildTechCheckboxes(selectedIds) {
 }
 
 //    Submit programming record                                              
-async function submitProgramming() {
-  var editId  = document.getElementById('prog-edit-id').value.trim();
-  var isEdit  = editId.length > 0;
-  var batch   = document.getElementById('prog-batch').value.trim();
-  var driver  = document.getElementById('prog-driver').value.trim();
-  var decoder = document.getElementById('prog-decoder').value.trim();
-  if (!batch)   { toast('Batch number is required', 'error'); return; }
-  if (!driver)  { toast('Driver chip is required',  'error'); return; }
-  if (!decoder) { toast('Decoder chip is required', 'error'); return; }
 
-  var btn = document.getElementById('prog-submit-btn');
-  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Saving...';
-
-  try {
-    var existing = isEdit ? allProgramming.find(function(x){ return x.id === editId; }) : null;
-
-    // Upload RCFGX
-    var rcfgxUrl = isEdit ? (existing||{}).rcfgx_url : null;
-    var rcfgxName = isEdit ? (existing||{}).rcfgx_name : null;
-    var rcfgxSize = isEdit ? (existing||{}).rcfgx_size : null;
-    if (_progRcfgxFile) {
-      if (isEdit && rcfgxName) await sb.storage.from('programming-files').remove([rcfgxName]);
-      var fn = 'prog-rcfgx-' + Date.now() + '-' + _progRcfgxFile.name;
-      var up = await sb.storage.from('programming-files').upload(fn, _progRcfgxFile, {contentType:'application/octet-stream', upsert:false});
-      if (!up.error) {
-        rcfgxUrl = sb.storage.from('programming-files').getPublicUrl(fn).data.publicUrl;
-        rcfgxName = fn; rcfgxSize = _progRcfgxFile.size;
-      } else { toast('RCFGX upload failed: ' + up.error.message, 'error'); }
-    } else if (!_progRcfgxKeep && isEdit && rcfgxName) {
-      await sb.storage.from('programming-files').remove([rcfgxName]);
-      rcfgxUrl = null; rcfgxName = null; rcfgxSize = null;
-    }
-
-    var rcvrId = document.getElementById('prog-rcvr-card').value || null;
-    var payload = {
-      batch_number:     batch,
-      pitch:            document.getElementById('prog-pitch').value || null,
-      driver_chip:      driver,
-      decoder_chip:     decoder,
-      notes:            document.getElementById('prog-notes').value.trim() || null,
-      receiver_card_id: rcvrId,
-      rcfgx_url:        rcfgxUrl, rcfgx_name: rcfgxName, rcfgx_size: rcfgxSize,
-      updated_at:       new Date().toISOString()
-    };
-
-    var res;
-    if (isEdit) {
-      res = await sb.from('rc_programming').update(payload).eq('id', editId);
-    } else {
-      payload.created_by = CU.id;
-      res = await sb.from('rc_programming').insert(payload).select().single();
-    }
-    if (res.error) { toast('Error: ' + res.error.message, 'error'); return; }
-
-    var progId = isEdit ? editId : (res.data||{}).id;
-    if (progId) {
-      await sb.from('rc_programming_visibility').delete().eq('programming_id', progId);
-      var checks = Array.from(document.querySelectorAll('#prog-tech-checkboxes input[type=checkbox]:checked'));
-      if (checks.length) {
-        await sb.from('rc_programming_visibility').insert(
-          checks.map(function(c){ return {programming_id: progId, user_id: c.value, granted_by: CU.id}; })
-        );
-      }
-    }
-
-    cm('m-programming');
-    toast(isEdit ? 'Record updated!' : 'Record added!', 'success');
-    await renderProgrammingPage();
-  } finally {
-    btn.disabled = false;
-    btn.textContent = document.getElementById('prog-edit-id').value ? 'Save Changes' : 'Save Record';
-  }
-}
 
 async function deleteProgramming(id) {
   if (!confirm('Delete this batch record?')) return;
