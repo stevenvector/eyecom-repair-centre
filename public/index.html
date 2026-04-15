@@ -785,6 +785,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
         <div class="fg2"><label>B.E.R</label><input type="number" id="wl-ber" placeholder="0" min="0" oninput="syncSession()"></div>
         <div class="fg2"><label>Qty Completed</label><input type="number" id="wl-qty" readonly style="opacity:.7;background:rgba(0,212,255,.05);border-color:rgba(0,212,255,.2)"></div>
       </div>
+      <div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--tm);margin-bottom:8px;margin-top:4px">Module Testing</div>
+      <div class="wlf-grid" style="margin-bottom:12px">
+        <div class="fg2"><label>Modules Tested</label><input type="number" id="wl-mod-tested" placeholder="0" min="0" oninput="syncSession()"></div>
+        <div class="fg2"><label>Modules Passed</label><input type="number" id="wl-mod-passed" placeholder="0" min="0" oninput="syncSession()"></div>
+      </div>
       <div class="fg2" style="margin-bottom:12px"><label>Notes</label><textarea id="wl-notes" placeholder="Describe your work..." oninput="syncSession()"></textarea></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
         <div style="font-size:12px;color:var(--tm)">Start: <strong id="sess-start-disp" style="color:var(--tp)">—</strong></div>

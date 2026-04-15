@@ -441,7 +441,7 @@ async function viewJob(id){
   var sessions=await loadSessions(),jSess=sessions.filter(function(s){return s.job_id===id;}),jLogs=allLogs.filter(function(wl){return wl.job_id===id;}),mySession=jSess.find(function(s){return s.user_id===CU.id;}),ce=CU.is_admin||CU.is_senior||j.assigned_to===CU.id;
   var sc2=sc(j.status),pc2=pc(j.priority);
   var wlHtml=jLogs.length?jLogs.map(function(wl){var dur='-';if(wl.start_time&&wl.end_time)dur=fmtDur(Math.floor((new Date(wl.end_time)-new Date(wl.start_time))/1000));return'<div class="wle"><div class="wleh"><span class="wlu">'+userName(wl.user_id)+'</span><span class="wlt">'+(wl.start_time?wl.start_time.slice(0,16).replace('T',' '):'')+' -> '+(wl.end_time?wl.end_time.slice(0,16).replace('T',' '):'')+' ('+dur+')</span></div><div class="wlstats"><div class="wlstat"><div class="wlsv" style="color:var(--cy)">'+wl.lt3+'</div><div class="wlsl">&lt;3 Px</div></div><div class="wlstat"><div class="wlsv" style="color:var(--cr)">'+wl.gt3+'</div><div class="wlsl">&gt;3 Px</div></div><div class="wlstat"><div class="wlsv" style="color:var(--c2)">'+wl.track+'</div><div class="wlsl">Track</div></div><div class="wlstat"><div class="wlsv" style="color:var(--cp)">'+wl.chip+'</div><div class="wlsl">Chip</div></div><div class="wlstat"><div class="wlsv" style="color:var(--cr)">'+wl.ber+'</div><div class="wlsl">BER</div></div><div class="wlstat"><div class="wlsv" style="color:var(--cg)">'+wl.qty+'</div><div class="wlsl">Total Qty</div></div></div>'+(wl.notes?'<div style="font-size:12px;color:var(--tm)">'+wl.notes+'</div>':'')+' </div>';}).join(''):'<div class="empty"><div class="eico"> </div><p class="etxt">No work logs yet</p></div>';
-  var activeHtml=jSess.length?jSess.map(function(s){var elapsed=fmtDur(Math.floor((Date.now()-new Date(s.start_time).getTime())/1000));return'<div class="session-card"><div class="session-header"><div style="display:flex;align-items:center;gap:9px"><div class="av avlg">'+userInit(s.user_id)+'</div><div><div style="font-size:14px;font-weight:600">'+userName(s.user_id)+'</div><div style="font-size:12px;color:var(--tm)">'+s.start_time.slice(0,16).replace('T',' ')+'</div></div></div><span><span class="ldot2"></span><span style="font-size:12px;color:var(--cg)">Live - '+elapsed+'</span></span></div><div class="sess-grid"><div class="sfield"><div class="sfval">'+s.lt3+'</div><div class="sflbl">&lt;3 Px</div></div><div class="sfield"><div class="sfval" style="color:var(--cr)">'+s.gt3+'</div><div class="sflbl">&gt;3 Px</div></div><div class="sfield"><div class="sfval" style="color:var(--c2)">'+s.track+'</div><div class="sflbl">Track</div></div><div class="sfield"><div class="sfval" style="color:var(--cp)">'+s.chip+'</div><div class="sflbl">Chip</div></div><div class="sfield"><div class="sfval" style="color:var(--cr)">'+s.ber+'</div><div class="sflbl">BER</div></div><div class="sfield"><div class="sfval" style="color:var(--cg)">'+s.qty+'</div><div class="sflbl">Qty</div></div></div>'+(s.notes?'<div style="font-size:12px;color:var(--tm)">'+s.notes+'</div>':'')+' </div>';}).join(''):'<div class="empty"><div class="eico"> </div><p class="etxt">No active sessions</p></div>';
+  var activeHtml=jSess.length?jSess.map(function(s){var elapsed=fmtDur(Math.floor((Date.now()-new Date(s.start_time).getTime())/1000));return'<div class="session-card"><div class="session-header"><div style="display:flex;align-items:center;gap:9px"><div class="av avlg">'+userInit(s.user_id)+'</div><div><div style="font-size:14px;font-weight:600">'+userName(s.user_id)+'</div><div style="font-size:12px;color:var(--tm)">'+s.start_time.slice(0,16).replace('T',' ')+'</div></div></div><span><span class="ldot2"></span><span style="font-size:12px;color:var(--cg)">Live - '+elapsed+'</span></span></div><div class="sess-grid"><div class="sfield"><div class="sfval">'+s.lt3+'</div><div class="sflbl">&lt;3 Px</div></div><div class="sfield"><div class="sfval" style="color:var(--cr)">'+s.gt3+'</div><div class="sflbl">&gt;3 Px</div></div><div class="sfield"><div class="sfval" style="color:var(--c2)">'+s.track+'</div><div class="sflbl">Track</div></div><div class="sfield"><div class="sfval" style="color:var(--cp)">'+s.chip+'</div><div class="sflbl">Chip</div></div><div class="sfield"><div class="sfval" style="color:var(--cr)">'+s.ber+'</div><div class="sflbl">BER</div></div><div class="sfield"><div class="sfval" style="color:var(--cg)">'+s.qty+'</div><div class="sflbl">Qty</div></div><div class="sfield"><div class="sfval" style="color:var(--c1)">'+(s.mod_tested||0)+'</div><div class="sflbl">Tested</div></div><div class="sfield"><div class="sfval" style="color:var(--cg)">'+(s.mod_passed||0)+'</div><div class="sflbl">Passed</div></div></div>'+(s.notes?'<div style="font-size:12px;color:var(--tm)">'+s.notes+'</div>':'')+' </div>';}).join(''):'<div class="empty"><div class="eico"> </div><p class="etxt">No active sessions</p></div>';
   var acts='';if(ce)acts+='<button class="btn bout" onclick="cm(\'m-view\');openEdit(\''+j.id+'\')">  Edit</button>';acts+='<button class="btn bwarn" onclick="cm(\'m-view\');openStatus(\''+j.id+'\')">  Status</button>';if(!mySession&&j.status!=='Completed'&&j.status!=='Cancelled')acts+='<button class="btn bsuccess" onclick="cm(\'m-view\');startSession(\''+j.id+'\')">  Start Work</button>';else if(mySession)acts+='<button class="btn binfo" onclick="cm(\'m-view\');reopenSession(\''+j.id+'\',\''+mySession.id+'\')">  Resume</button>';if(CU.is_admin)acts+='<button class="btn bdanger" onclick="cm(\'m-view\');delJob(\''+j.id+'\')">  Delete</button>';
   document.getElementById('vjttl').textContent=j.job_number+' - '+j.job_name;
   document.getElementById('vjcont').innerHTML='<div class="jdtabs"><div class="jdtab active" id="vt-d" onclick="vTab(\'d\')">Details</div><div class="jdtab" id="vt-w" onclick="vTab(\'w\')">Work Logs ('+jLogs.length+')</div><div class="jdtab" id="vt-a" onclick="vTab(\'a\')">Active Now ('+jSess.length+')</div></div><div id="vtd-d"><div class="drow"><div class="dl"><div class="dlb">Client</div><div class="dlv">'+j.client+'</div></div><div class="dl"><div class="dlb">Batch</div><div class="dlv"><code style="background:rgba(0,212,255,.07);padding:2px 6px;border-radius:4px;font-size:12px">'+(j.batch||'-')+'</code></div></div><div class="dl"><div class="dlb">Pitch</div><div class="dlv" style="color:var(--cp)">'+(j.pitch||'-')+'</div></div><div class="dl"><div class="dlb">Qty</div><div class="dlv">'+j.qty+' units</div></div><div class="dl"><div class="dlb">Priority</div><div class="dlv"><span class="pb '+pc2+'">'+j.priority+'</span></div></div><div class="dl"><div class="dlb">Status</div><div class="dlv"><span class="bdg '+sc2+'"><span class="bdot"></span>'+j.status+'</span></div></div><div class="dl"><div class="dlb">Assigned To</div><div class="dlv">'+(j.assigned_to?'<span class="chip">  '+userName(j.assigned_to)+'</span>':'<span style="color:var(--tm)">Unassigned</span>')+'</div></div><div class="dl"><div class="dlb">Date</div><div class="dlv">'+(j.job_date?j.job_date.slice(0,10):'-')+'</div></div><div class="dl"><div class="dlb">Spares</div><div class="dlv">'+(j.spares||'-')+'</div></div>'+(j.files&&j.files.length?'<div class="dl"><div class="dlb">Files</div><div class="dlv" style="font-size:12px;color:var(--tm)">'+j.files.join(', ')+'</div></div>':'')+'</div>'+(j.notes?'<div class="dnotes"><div class="dnlb">Notes</div><div class="dnv">'+j.notes+'</div></div>':'')+' </div><div id="vtd-w" style="display:none">'+wlHtml+'</div><div id="vtd-a" style="display:none">'+activeHtml+'</div><div class="jdact">'+acts+'</div>';
@@ -452,21 +452,21 @@ function vTab(t){document.querySelectorAll('.jdtab').forEach(function(el){el.cla
 // ==============================================
 //  WORK SESSIONS
 // ==============================================
-async function startSession(jobId){var j=allJobs.find(function(x){return x.id===jobId;});if(!j)return;var now=new Date().toISOString();var{data,error}=await sb.from('rc_work_sessions').upsert({job_id:jobId,user_id:CU.id,start_time:now,lt3:0,gt3:0,track:0,chip:0,ber:0,qty:0,notes:''},{onConflict:'job_id,user_id'}).select().single();if(error){toast('Could not start session: '+error.message,'error');return;}if(j.status==='Pending'||j.status==='On Hold'){await sb.from('rc_jobs').update({status:'In Progress'}).eq('id',jobId);await loadJobs();}sessJid=jobId;sessStart=new Date(data.start_time);openSessionModal(j,data);toast('Session started on '+j.job_number,'success');}
+async function startSession(jobId){var j=allJobs.find(function(x){return x.id===jobId;});if(!j)return;var now=new Date().toISOString();var{data,error}=await sb.from('rc_work_sessions').upsert({job_id:jobId,user_id:CU.id,start_time:now,lt3:0,gt3:0,track:0,chip:0,ber:0,qty:0,mod_tested:0,mod_passed:0,notes:''},{onConflict:'job_id,user_id'}).select().single();if(error){toast('Could not start session: '+error.message,'error');return;}if(j.status==='Pending'||j.status==='On Hold'){await sb.from('rc_jobs').update({status:'In Progress'}).eq('id',jobId);await loadJobs();}sessJid=jobId;sessStart=new Date(data.start_time);openSessionModal(j,data);toast('Session started on '+j.job_number,'success');}
 async function reopenSession(jobId,sessId){var j=allJobs.find(function(x){return x.id===jobId;});if(!j)return;var{data}=await sb.from('rc_work_sessions').select('*').eq('id',sessId).single();if(!data){await startSession(jobId);return;}sessJid=jobId;sessStart=new Date(data.start_time);openSessionModal(j,data);}
-function openSessionModal(j,sess){document.getElementById('sess-ttl').textContent=j.job_number+' - '+j.job_name;document.getElementById('sess-sub').textContent='Batch: '+(j.batch||'-')+' | Pitch: '+(j.pitch||'-')+' | Client: '+j.client;document.getElementById('sess-start-disp').textContent=sessStart.toISOString().slice(0,16).replace('T',' ');document.getElementById('wl-lt3').value=sess.lt3||'';document.getElementById('wl-gt3').value=sess.gt3||'';document.getElementById('wl-track').value=sess.track||'';document.getElementById('wl-chip').value=sess.chip||'';document.getElementById('wl-ber').value=sess.ber||'';document.getElementById('wl-notes').value=sess.notes||'';updateQtySum();om('m-session');if(sessInterval)clearInterval(sessInterval);sessInterval=setInterval(function(){var el=document.getElementById('sess-timer');if(el&&sessStart)el.textContent=fmtDur(Math.floor((Date.now()-sessStart.getTime())/1000));refreshSessOthers();},3000);refreshSessOthers();}
+function openSessionModal(j,sess){document.getElementById('sess-ttl').textContent=j.job_number+' - '+j.job_name;document.getElementById('sess-sub').textContent='Batch: '+(j.batch||'-')+' | Pitch: '+(j.pitch||'-')+' | Client: '+j.client;document.getElementById('sess-start-disp').textContent=sessStart.toISOString().slice(0,16).replace('T',' ');document.getElementById('wl-lt3').value=sess.lt3||'';document.getElementById('wl-gt3').value=sess.gt3||'';document.getElementById('wl-track').value=sess.track||'';document.getElementById('wl-chip').value=sess.chip||'';document.getElementById('wl-ber').value=sess.ber||'';document.getElementById('wl-mod-tested').value=sess.mod_tested||'';document.getElementById('wl-mod-passed').value=sess.mod_passed||'';document.getElementById('wl-notes').value=sess.notes||'';updateQtySum();om('m-session');if(sessInterval)clearInterval(sessInterval);sessInterval=setInterval(function(){var el=document.getElementById('sess-timer');if(el&&sessStart)el.textContent=fmtDur(Math.floor((Date.now()-sessStart.getTime())/1000));refreshSessOthers();},3000);refreshSessOthers();}
 function updateQtySum(){var lt=parseInt(document.getElementById('wl-lt3').value)||0,gt=parseInt(document.getElementById('wl-gt3').value)||0,tr=parseInt(document.getElementById('wl-track').value)||0,ch=parseInt(document.getElementById('wl-chip').value)||0;document.getElementById('wl-qty').value=lt+gt+tr+ch;}
-function syncSession(){updateQtySum();clearTimeout(syncDebounce);syncDebounce=setTimeout(async function(){if(!sessJid)return;var lt=parseInt(document.getElementById('wl-lt3').value)||0,gt=parseInt(document.getElementById('wl-gt3').value)||0,tr=parseInt(document.getElementById('wl-track').value)||0;await sb.from('rc_work_sessions').update({lt3:lt,gt3:gt,track:tr,chip:parseInt(document.getElementById('wl-chip').value)||0,ber:parseInt(document.getElementById('wl-ber').value)||0,qty:lt+gt+tr+ch,notes:document.getElementById('wl-notes').value}).eq('job_id',sessJid).eq('user_id',CU.id);},800);}
-async function refreshSessOthers(){if(!sessJid)return;var sessions=await loadSessions(),others=sessions.filter(function(s){return s.job_id===sessJid&&s.user_id!==CU.id;});var banner=document.getElementById('sess-live-banner'),othEl=document.getElementById('sess-others');if(!banner||!othEl)return;if(others.length){banner.innerHTML='<div style="background:rgba(0,255,136,.06);border:1px solid rgba(0,255,136,.2);border-radius:8px;padding:9px 12px;font-size:12px;color:var(--cg);margin-bottom:8px"><span class="ldot2"></span><strong>'+others.length+' other tech'+(others.length>1?'s':'')+' on this job:</strong> '+others.map(function(s){return userName(s.user_id);}).join(', ')+'</div>';othEl.innerHTML='<div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--tm);margin-bottom:10px">Other Techs - Live Progress</div>'+others.map(function(s){var e=fmtDur(Math.floor((Date.now()-new Date(s.start_time).getTime())/1000));return'<div class="session-card"><div class="session-header"><div style="display:flex;align-items:center;gap:9px"><div class="av avlg">'+userInit(s.user_id)+'</div><div><div style="font-size:14px;font-weight:600">'+userName(s.user_id)+'</div></div></div><span class="ldot2"></span><span style="font-size:12px;color:var(--cg)">'+e+'</span></div><div class="sess-grid"><div class="sfield"><div class="sfval">'+s.lt3+'</div><div class="sflbl">&lt;3 Px</div></div><div class="sfield"><div class="sfval" style="color:var(--cr)">'+s.gt3+'</div><div class="sflbl">&gt;3 Px</div></div><div class="sfield"><div class="sfval" style="color:var(--c2)">'+s.track+'</div><div class="sflbl">Track</div></div><div class="sfield"><div class="sfval" style="color:var(--cp)">'+s.chip+'</div><div class="sflbl">Chip</div></div><div class="sfield"><div class="sfval" style="color:var(--cr)">'+s.ber+'</div><div class="sflbl">BER</div></div><div class="sfield"><div class="sfval" style="color:var(--cg)">'+s.qty+'</div><div class="sflbl">Qty</div></div></div></div>';}).join('');}else{banner.innerHTML='';othEl.innerHTML='';}}
-async function submitSession(){if(!sessJid)return;var j=allJobs.find(function(x){return x.id===sessJid;});if(!j)return;var now=new Date().toISOString(),lt=parseInt(document.getElementById('wl-lt3').value)||0,gt=parseInt(document.getElementById('wl-gt3').value)||0,tr=parseInt(document.getElementById('wl-track').value)||0,ch=parseInt(document.getElementById('wl-chip').value)||0;var{error:e1}=await sb.from('rc_work_logs').insert({job_id:sessJid,user_id:CU.id,start_time:sessStart.toISOString(),end_time:now,batch:j.batch,pitch:j.pitch,lt3:lt,gt3:gt,track:tr,chip:ch,ber:parseInt(document.getElementById('wl-ber').value)||0,qty:lt+gt+tr+ch,notes:document.getElementById('wl-notes').value});if(e1){toast('Error saving log: '+e1.message,'error');return;}await sb.from('rc_work_sessions').delete().eq('job_id',sessJid).eq('user_id',CU.id);if(sessInterval)clearInterval(sessInterval);sessJid=null;sessStart=null;await loadLogs();cm('m-session');toast('Work session submitted!','success');refreshAllTables();renderWLPage();updateActiveNB();}
+function syncSession(){updateQtySum();clearTimeout(syncDebounce);syncDebounce=setTimeout(async function(){if(!sessJid)return;var lt=parseInt(document.getElementById('wl-lt3').value)||0,gt=parseInt(document.getElementById('wl-gt3').value)||0,tr=parseInt(document.getElementById('wl-track').value)||0;var ch=parseInt(document.getElementById('wl-chip').value)||0;await sb.from('rc_work_sessions').update({lt3:lt,gt3:gt,track:tr,chip:ch,ber:parseInt(document.getElementById('wl-ber').value)||0,qty:lt+gt+tr+ch,mod_tested:parseInt(document.getElementById('wl-mod-tested').value)||0,mod_passed:parseInt(document.getElementById('wl-mod-passed').value)||0,notes:document.getElementById('wl-notes').value}).eq('job_id',sessJid).eq('user_id',CU.id);},800);}
+async function refreshSessOthers(){if(!sessJid)return;var sessions=await loadSessions(),others=sessions.filter(function(s){return s.job_id===sessJid&&s.user_id!==CU.id;});var banner=document.getElementById('sess-live-banner'),othEl=document.getElementById('sess-others');if(!banner||!othEl)return;if(others.length){banner.innerHTML='<div style="background:rgba(0,255,136,.06);border:1px solid rgba(0,255,136,.2);border-radius:8px;padding:9px 12px;font-size:12px;color:var(--cg);margin-bottom:8px"><span class="ldot2"></span><strong>'+others.length+' other tech'+(others.length>1?'s':'')+' on this job:</strong> '+others.map(function(s){return userName(s.user_id);}).join(', ')+'</div>';othEl.innerHTML='<div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--tm);margin-bottom:10px">Other Techs - Live Progress</div>'+others.map(function(s){var e=fmtDur(Math.floor((Date.now()-new Date(s.start_time).getTime())/1000));return'<div class="session-card"><div class="session-header"><div style="display:flex;align-items:center;gap:9px"><div class="av avlg">'+userInit(s.user_id)+'</div><div><div style="font-size:14px;font-weight:600">'+userName(s.user_id)+'</div></div></div><span class="ldot2"></span><span style="font-size:12px;color:var(--cg)">'+e+'</span></div><div class="sess-grid"><div class="sfield"><div class="sfval">'+s.lt3+'</div><div class="sflbl">&lt;3 Px</div></div><div class="sfield"><div class="sfval" style="color:var(--cr)">'+s.gt3+'</div><div class="sflbl">&gt;3 Px</div></div><div class="sfield"><div class="sfval" style="color:var(--c2)">'+s.track+'</div><div class="sflbl">Track</div></div><div class="sfield"><div class="sfval" style="color:var(--cp)">'+s.chip+'</div><div class="sflbl">Chip</div></div><div class="sfield"><div class="sfval" style="color:var(--cr)">'+s.ber+'</div><div class="sflbl">BER</div></div><div class="sfield"><div class="sfval" style="color:var(--cg)">'+s.qty+'</div><div class="sflbl">Qty</div></div><div class="sfield"><div class="sfval" style="color:var(--c1)">'+(s.mod_tested||0)+'</div><div class="sflbl">Tested</div></div><div class="sfield"><div class="sfval" style="color:var(--cg)">'+(s.mod_passed||0)+'</div><div class="sflbl">Passed</div></div></div></div>';}).join('');}else{banner.innerHTML='';othEl.innerHTML='';}}
+async function submitSession(){if(!sessJid)return;var j=allJobs.find(function(x){return x.id===sessJid;});if(!j)return;var now=new Date().toISOString(),lt=parseInt(document.getElementById('wl-lt3').value)||0,gt=parseInt(document.getElementById('wl-gt3').value)||0,tr=parseInt(document.getElementById('wl-track').value)||0,ch=parseInt(document.getElementById('wl-chip').value)||0;var{error:e1}=await sb.from('rc_work_logs').insert({job_id:sessJid,user_id:CU.id,start_time:sessStart.toISOString(),end_time:now,batch:j.batch,pitch:j.pitch,lt3:lt,gt3:gt,track:tr,chip:ch,ber:parseInt(document.getElementById('wl-ber').value)||0,qty:lt+gt+tr+ch,mod_tested:parseInt(document.getElementById('wl-mod-tested').value)||0,mod_passed:parseInt(document.getElementById('wl-mod-passed').value)||0,notes:document.getElementById('wl-notes').value});if(e1){toast('Error saving log: '+e1.message,'error');return;}await sb.from('rc_work_sessions').delete().eq('job_id',sessJid).eq('user_id',CU.id);if(sessInterval)clearInterval(sessInterval);sessJid=null;sessStart=null;await loadLogs();cm('m-session');toast('Work session submitted!','success');refreshAllTables();renderWLPage();updateActiveNB();}
 async function abandonSession(){if(!sessJid)return;await sb.from('rc_work_sessions').delete().eq('job_id',sessJid).eq('user_id',CU.id);if(sessInterval)clearInterval(sessInterval);sessJid=null;sessStart=null;cm('m-session');toast('Session abandoned','info');refreshAllTables();updateActiveNB();}
 async function updateActiveNB(){var sessions=await loadSessions();var count=sessions.length;var nb=document.getElementById('nb-active');if(nb){nb.textContent=count;nb.style.display=count?'':'none';}}
-async function refreshActivePage(){if(!document.getElementById('page-active').classList.contains('active'))return;var sessions=await loadSessions();var ind=document.getElementById('active-ind');if(ind)ind.textContent=sessions.length?sessions.length+' active session'+(sessions.length>1?'s':'')+' live':'No active sessions';if(!sessions.length){document.getElementById('active-cont').innerHTML='<div class="empty"><div class="eico"> </div><p class="etxt">No active work sessions right now</p></div>';return;}var jobIds=[...new Set(sessions.map(function(s){return s.job_id;}))];document.getElementById('active-cont').innerHTML=jobIds.map(function(jid){var j=allJobs.find(function(x){return x.id===jid;});var jSess=sessions.filter(function(s){return s.job_id===jid;});if(!j)return'';return'<div style="background:var(--bgc);border:1px solid var(--bdr);border-radius:12px;padding:18px;margin-bottom:16px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px"><div><span style="font-family:Rajdhani,sans-serif;font-size:18px;font-weight:700;color:var(--c1)">'+j.job_number+'</span> <span style="font-size:15px;font-weight:500">'+j.job_name+'</span></div><span class="bdg '+sc(j.status)+'"><span class="bdot"></span>'+j.status+'</span></div>'+jSess.map(function(s){var elapsed=fmtDur(Math.floor((Date.now()-new Date(s.start_time).getTime())/1000));return'<div class="session-card"><div class="session-header"><div style="display:flex;align-items:center;gap:9px"><div class="av avlg">'+userInit(s.user_id)+'</div><div><div style="font-size:14px;font-weight:600">'+userName(s.user_id)+'</div><div style="font-size:12px;color:var(--tm)">'+s.start_time.slice(0,16).replace('T',' ')+'</div></div></div><span><span class="ldot2"></span><span style="font-size:12px;color:var(--cg)">'+elapsed+'</span></span></div><div class="sess-grid"><div class="sfield"><div class="sfval">'+s.lt3+'</div><div class="sflbl">&lt;3 Px</div></div><div class="sfield"><div class="sfval" style="color:var(--cr)">'+s.gt3+'</div><div class="sflbl">&gt;3 Px</div></div><div class="sfield"><div class="sfval" style="color:var(--c2)">'+s.track+'</div><div class="sflbl">Track</div></div><div class="sfield"><div class="sfval" style="color:var(--cp)">'+s.chip+'</div><div class="sflbl">Chip</div></div><div class="sfield"><div class="sfval" style="color:var(--cr)">'+s.ber+'</div><div class="sflbl">BER</div></div><div class="sfield"><div class="sfval" style="color:var(--cg)">'+s.qty+'</div><div class="sflbl">Qty</div></div></div>'+(s.notes?'<div style="font-size:12px;color:var(--tm)">'+s.notes+'</div>':'')+' </div>';}).join('')+'</div>';}).join('');}
+async function refreshActivePage(){if(!document.getElementById('page-active').classList.contains('active'))return;var sessions=await loadSessions();var ind=document.getElementById('active-ind');if(ind)ind.textContent=sessions.length?sessions.length+' active session'+(sessions.length>1?'s':'')+' live':'No active sessions';if(!sessions.length){document.getElementById('active-cont').innerHTML='<div class="empty"><div class="eico"> </div><p class="etxt">No active work sessions right now</p></div>';return;}var jobIds=[...new Set(sessions.map(function(s){return s.job_id;}))];document.getElementById('active-cont').innerHTML=jobIds.map(function(jid){var j=allJobs.find(function(x){return x.id===jid;});var jSess=sessions.filter(function(s){return s.job_id===jid;});if(!j)return'';return'<div style="background:var(--bgc);border:1px solid var(--bdr);border-radius:12px;padding:18px;margin-bottom:16px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px"><div><span style="font-family:Rajdhani,sans-serif;font-size:18px;font-weight:700;color:var(--c1)">'+j.job_number+'</span> <span style="font-size:15px;font-weight:500">'+j.job_name+'</span></div><span class="bdg '+sc(j.status)+'"><span class="bdot"></span>'+j.status+'</span></div>'+jSess.map(function(s){var elapsed=fmtDur(Math.floor((Date.now()-new Date(s.start_time).getTime())/1000));return'<div class="session-card"><div class="session-header"><div style="display:flex;align-items:center;gap:9px"><div class="av avlg">'+userInit(s.user_id)+'</div><div><div style="font-size:14px;font-weight:600">'+userName(s.user_id)+'</div><div style="font-size:12px;color:var(--tm)">'+s.start_time.slice(0,16).replace('T',' ')+'</div></div></div><span><span class="ldot2"></span><span style="font-size:12px;color:var(--cg)">'+elapsed+'</span></span></div><div class="sess-grid"><div class="sfield"><div class="sfval">'+s.lt3+'</div><div class="sflbl">&lt;3 Px</div></div><div class="sfield"><div class="sfval" style="color:var(--cr)">'+s.gt3+'</div><div class="sflbl">&gt;3 Px</div></div><div class="sfield"><div class="sfval" style="color:var(--c2)">'+s.track+'</div><div class="sflbl">Track</div></div><div class="sfield"><div class="sfval" style="color:var(--cp)">'+s.chip+'</div><div class="sflbl">Chip</div></div><div class="sfield"><div class="sfval" style="color:var(--cr)">'+s.ber+'</div><div class="sflbl">BER</div></div><div class="sfield"><div class="sfval" style="color:var(--cg)">'+s.qty+'</div><div class="sflbl">Qty</div></div><div class="sfield"><div class="sfval" style="color:var(--c1)">'+(s.mod_tested||0)+'</div><div class="sflbl">Tested</div></div><div class="sfield"><div class="sfval" style="color:var(--cg)">'+(s.mod_passed||0)+'</div><div class="sflbl">Passed</div></div></div>'+(s.notes?'<div style="font-size:12px;color:var(--tm)">'+s.notes+'</div>':'')+' </div>';}).join('')+'</div>';}).join('');}
 
 // ==============================================
 //  WORK LOG PAGE
 // ==============================================
-function renderWLPage(){if(!allLogs.length){document.getElementById('wlcont').innerHTML='<div class="empty"><div class="eico"> </div><p class="etxt">No work logs yet</p></div>';return;}document.getElementById('wlcont').innerHTML='<div class="tc"><div class="twrap"><table class="dt"><thead><tr><th>Technician</th><th>Job</th><th>Start</th><th>End</th><th>Duration</th><th>&lt;3 Px</th><th>&gt;3 Px</th><th>Track</th><th>Chip</th><th>BER</th><th>Qty Total</th><th>Notes</th></tr></thead><tbody>'+allLogs.map(function(wl){var dur='-';if(wl.start_time&&wl.end_time)dur=fmtDur(Math.floor((new Date(wl.end_time)-new Date(wl.start_time))/1000));var j=allJobs.find(function(x){return x.id===wl.job_id;});return'<tr><td><div class="chip">'+userName(wl.user_id)+'</div></td><td><span style="color:var(--c1);font-weight:600">'+(j?j.job_number:wl.job_id.slice(0,8))+'</span><br><span style="font-size:11px;color:var(--tm)">'+(j?j.job_name:'')+'</span></td><td style="font-size:12px;color:var(--tm)">'+(wl.start_time?wl.start_time.slice(0,16).replace('T',' '):'-')+'</td><td style="font-size:12px;color:var(--tm)">'+(wl.end_time?wl.end_time.slice(0,16).replace('T',' '):'-')+'</td><td style="font-family:Rajdhani,sans-serif;color:var(--c1)">'+dur+'</td><td style="color:var(--cy);font-weight:600">'+wl.lt3+'</td><td style="color:var(--cr);font-weight:600">'+wl.gt3+'</td><td style="color:var(--c2)">'+wl.track+'</td><td style="color:var(--cp)">'+wl.chip+'</td><td style="color:var(--cr)">'+wl.ber+'</td><td style="color:var(--cg);font-family:Rajdhani,sans-serif;font-size:16px;font-weight:700">'+wl.qty+'</td><td style="font-size:12px;color:var(--tm);max-width:160px">'+(wl.notes||'-')+'</td></tr>';}).join('')+'</tbody></table></div></div>';}
+function renderWLPage(){if(!allLogs.length){document.getElementById('wlcont').innerHTML='<div class="empty"><div class="eico"> </div><p class="etxt">No work logs yet</p></div>';return;}document.getElementById('wlcont').innerHTML='<div class="tc"><div class="twrap"><table class="dt"><thead><tr><th>Technician</th><th>Job</th><th>Start</th><th>End</th><th>Duration</th><th>&lt;3 Px</th><th>&gt;3 Px</th><th>Track</th><th>Chip</th><th>BER</th><th>Qty Total</th><th>Mod Tested</th><th>Mod Passed</th><th>Notes</th></tr></thead><tbody>'+allLogs.map(function(wl){var dur='-';if(wl.start_time&&wl.end_time)dur=fmtDur(Math.floor((new Date(wl.end_time)-new Date(wl.start_time))/1000));var j=allJobs.find(function(x){return x.id===wl.job_id;});return'<tr><td><div class="chip">'+userName(wl.user_id)+'</div></td><td><span style="color:var(--c1);font-weight:600">'+(j?j.job_number:wl.job_id.slice(0,8))+'</span><br><span style="font-size:11px;color:var(--tm)">'+(j?j.job_name:'')+'</span></td><td style="font-size:12px;color:var(--tm)">'+(wl.start_time?wl.start_time.slice(0,16).replace('T',' '):'-')+'</td><td style="font-size:12px;color:var(--tm)">'+(wl.end_time?wl.end_time.slice(0,16).replace('T',' '):'-')+'</td><td style="font-family:Rajdhani,sans-serif;color:var(--c1)">'+dur+'</td><td style="color:var(--cy);font-weight:600">'+wl.lt3+'</td><td style="color:var(--cr);font-weight:600">'+wl.gt3+'</td><td style="color:var(--c2)">'+wl.track+'</td><td style="color:var(--cp)">'+wl.chip+'</td><td style="color:var(--cr)">'+wl.ber+'</td><td style="color:var(--cg);font-family:Rajdhani,sans-serif;font-size:16px;font-weight:700">'+wl.qty+'</td><td style="color:var(--c1);font-weight:600">'+(wl.mod_tested||0)+'</td><td style="color:var(--cg);font-weight:600">'+(wl.mod_passed||0)+'</td><td style="font-size:12px;color:var(--tm);max-width:160px">'+(wl.notes||'-')+'</td></tr>';}).join('')+'</tbody></table></div></div>';}
 
 // ==============================================
 //  JOB CRUD
@@ -494,9 +494,9 @@ function generateReport(){
   }
 
   // Grand totals
-  var totSess=logs.length,totSecs=0,totLt3=0,totGt3=0,totTrack=0,totChip=0,totBer=0,totQty=0;
+  var totSess=logs.length,totSecs=0,totLt3=0,totGt3=0,totTrack=0,totChip=0,totBer=0,totQty=0,totModTested=0,totModPassed=0;
   logs.forEach(function(wl){
-    totLt3+=wl.lt3;totGt3+=wl.gt3;totTrack+=wl.track;totChip+=wl.chip;totBer+=wl.ber;totQty+=wl.qty;
+    totLt3+=wl.lt3;totGt3+=wl.gt3;totTrack+=wl.track;totChip+=wl.chip;totBer+=wl.ber;totQty+=wl.qty;totModTested+=(wl.mod_tested||0);totModPassed+=(wl.mod_passed||0);
     if(wl.start_time&&wl.end_time)totSecs+=Math.floor((new Date(wl.end_time)-new Date(wl.start_time))/1000);
   });
 
@@ -527,10 +527,10 @@ function generateReport(){
   Object.keys(byUser).forEach(function(uid){
     var u=allUsers.find(function(x){return x.id===uid;});
     var uJobs=byUser[uid];
-    var uSecs=0,uLt3=0,uGt3=0,uTrack=0,uChip=0,uBer=0,uQty=0,uSess=0;
+    var uSecs=0,uLt3=0,uGt3=0,uTrack=0,uChip=0,uBer=0,uQty=0,uSess=0,uModTested=0,uModPassed=0;
     Object.keys(uJobs).forEach(function(jid){
       uJobs[jid].forEach(function(wl){
-        uLt3+=wl.lt3;uGt3+=wl.gt3;uTrack+=wl.track;uChip+=wl.chip;uBer+=wl.ber;uQty+=wl.qty;uSess++;
+        uLt3+=wl.lt3;uGt3+=wl.gt3;uTrack+=wl.track;uChip+=wl.chip;uBer+=wl.ber;uQty+=wl.qty;uModTested+=(wl.mod_tested||0);uModPassed+=(wl.mod_passed||0);uSess++;
         if(wl.start_time&&wl.end_time)uSecs+=Math.floor((new Date(wl.end_time)-new Date(wl.start_time))/1000);
       });
     });
@@ -552,24 +552,24 @@ function generateReport(){
     // Job summary table for this tech
     h+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
     h+='<thead><tr>';
-    ['Job #','Job Name','Client','Pitch','Sessions','Time Spent','<3 Px','>3 Px','Track','Chip','BER','Modules'].forEach(function(t){
+    ['Job #','Job Name','Client','Pitch','Sessions','Time Spent','<3 Px','>3 Px','Track','Chip','BER','Modules','Mod Tested','Mod Passed'].forEach(function(t){
       h+='<th style="padding:7px 12px;text-align:left;font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--tm);border-bottom:1px solid var(--bdr);white-space:nowrap;background:rgba(0,0,0,.15)">'+t+'</th>';
     });
     h+='</tr></thead><tbody>';
 
     var jobKeys=Object.keys(uJobs);
-    var jTotSecs=0,jTotSess=0,jTotLt3=0,jTotGt3=0,jTotTrack=0,jTotChip=0,jTotBer=0,jTotQty=0;
+    var jTotSecs=0,jTotSess=0,jTotLt3=0,jTotGt3=0,jTotTrack=0,jTotChip=0,jTotBer=0,jTotQty=0,jTotModTested=0,jTotModPassed=0;
 
     jobKeys.forEach(function(jid,idx){
       var jlogs=uJobs[jid];
       var job=allJobs.find(function(x){return x.id===jid;});
-      var jSecs=0,jLt3=0,jGt3=0,jTrack=0,jChip=0,jBer=0,jQty=0;
+      var jSecs=0,jLt3=0,jGt3=0,jTrack=0,jChip=0,jBer=0,jQty=0,jModTested=0,jModPassed=0;
       jlogs.forEach(function(wl){
-        jLt3+=wl.lt3;jGt3+=wl.gt3;jTrack+=wl.track;jChip+=wl.chip;jBer+=wl.ber;jQty+=wl.qty;
+        jLt3+=wl.lt3;jGt3+=wl.gt3;jTrack+=wl.track;jChip+=wl.chip;jBer+=wl.ber;jQty+=wl.qty;jModTested+=(wl.mod_tested||0);jModPassed+=(wl.mod_passed||0);
         if(wl.start_time&&wl.end_time)jSecs+=Math.floor((new Date(wl.end_time)-new Date(wl.start_time))/1000);
       });
       jTotSecs+=jSecs;jTotSess+=jlogs.length;jTotLt3+=jLt3;jTotGt3+=jGt3;
-      jTotTrack+=jTrack;jTotChip+=jChip;jTotBer+=jBer;jTotQty+=jQty;
+      jTotTrack+=jTrack;jTotChip+=jChip;jTotBer+=jBer;jTotQty+=jQty;jTotModTested+=jModTested;jTotModPassed+=jModPassed;
 
       var rowBg=idx%2===0?'':'background:rgba(255,255,255,.02)';
       h+='<tr style="'+rowBg+'">';
@@ -585,6 +585,8 @@ function generateReport(){
       h+='<td style="padding:8px 12px;text-align:center;color:var(--cp)">'+jChip+'</td>';
       h+='<td style="padding:8px 12px;text-align:center;color:var(--cr)">'+jBer+'</td>';
       h+='<td style="padding:8px 12px;text-align:center;font-family:Rajdhani,sans-serif;font-size:15px;font-weight:700;color:var(--cg)">'+jQty+'</td>';
+      h+='<td style="padding:8px 12px;text-align:center;color:var(--c1);font-weight:600">'+jModTested+'</td>';
+      h+='<td style="padding:8px 12px;text-align:center;color:var(--cg);font-weight:600">'+jModPassed+'</td>';
       h+='</tr>';
     });
 
@@ -599,6 +601,8 @@ function generateReport(){
     h+='<td style="padding:8px 12px;text-align:center;font-weight:700;color:var(--cp)">'+jTotChip+'</td>';
     h+='<td style="padding:8px 12px;text-align:center;font-weight:700;color:var(--cr)">'+jTotBer+'</td>';
     h+='<td style="padding:8px 12px;text-align:center;font-family:Rajdhani,sans-serif;font-size:16px;font-weight:700;color:var(--cg)">'+jTotQty+'</td>';
+    h+='<td style="padding:8px 12px;text-align:center;font-weight:700;color:var(--c1)">'+jTotModTested+'</td>';
+    h+='<td style="padding:8px 12px;text-align:center;font-weight:700;color:var(--cg)">'+jTotModPassed+'</td>';
     h+='</tr>';
     h+='</tbody></table></div></div>';
   });
@@ -636,9 +640,9 @@ function downloadPDF(){
   }
 
   // Grand totals
-  var totSess=logs.length,totSecs=0,totLt3=0,totGt3=0,totTrack=0,totChip=0,totBer=0,totQty=0;
+  var totSess=logs.length,totSecs=0,totLt3=0,totGt3=0,totTrack=0,totChip=0,totBer=0,totQty=0,totModTested=0,totModPassed=0;
   logs.forEach(function(wl){
-    totLt3+=wl.lt3;totGt3+=wl.gt3;totTrack+=wl.track;totChip+=wl.chip;totBer+=wl.ber;totQty+=wl.qty;
+    totLt3+=wl.lt3;totGt3+=wl.gt3;totTrack+=wl.track;totChip+=wl.chip;totBer+=wl.ber;totQty+=wl.qty;totModTested+=(wl.mod_tested||0);totModPassed+=(wl.mod_passed||0);
     if(wl.start_time&&wl.end_time)totSecs+=Math.floor((new Date(wl.end_time)-new Date(wl.start_time))/1000);
   });
 
@@ -684,7 +688,9 @@ function downloadPDF(){
     {l:'Track Damage',v:totTrack,c:ORANGE},
     {l:'Chip Faults',v:totChip,c:PURPLE},
     {l:'B.E.R',v:totBer,c:RED},
-    {l:'Total Modules',v:totQty,c:GREEN}
+    {l:'Total Modules',v:totQty,c:GREEN},
+    {l:'Mod Tested',v:totModTested,c:CYAN},
+    {l:'Mod Passed',v:totModPassed,c:GREEN}
   ];
   var cw=(W-M*2-8)/gcards.length,ch=18;
   gcards.forEach(function(s,i){
@@ -713,10 +719,10 @@ function downloadPDF(){
   var masterRows=Object.keys(byUser).map(function(uid){
     var u=allUsers.find(function(x){return x.id===uid;});
     var uJobs=byUser[uid];
-    var uSecs=0,uLt3=0,uGt3=0,uTrack=0,uChip=0,uBer=0,uQty=0,uSess=0;
+    var uSecs=0,uLt3=0,uGt3=0,uTrack=0,uChip=0,uBer=0,uQty=0,uSess=0,uModTested=0,uModPassed=0;
     Object.keys(uJobs).forEach(function(jid){
       uJobs[jid].forEach(function(wl){
-        uLt3+=wl.lt3;uGt3+=wl.gt3;uTrack+=wl.track;uChip+=wl.chip;uBer+=wl.ber;uQty+=wl.qty;uSess++;
+        uLt3+=wl.lt3;uGt3+=wl.gt3;uTrack+=wl.track;uChip+=wl.chip;uBer+=wl.ber;uQty+=wl.qty;uModTested+=(wl.mod_tested||0);uModPassed+=(wl.mod_passed||0);uSess++;
         if(wl.start_time&&wl.end_time)uSecs+=Math.floor((new Date(wl.end_time)-new Date(wl.start_time))/1000);
       });
     });
@@ -726,14 +732,14 @@ function downloadPDF(){
       String(Object.keys(uJobs).length),
       String(uSess),
       fmtDur(uSecs),
-      String(uLt3),String(uGt3),String(uTrack),String(uChip),String(uBer),String(uQty)
+      String(uLt3),String(uGt3),String(uTrack),String(uChip),String(uBer),String(uQty),String(uModTested),String(uModPassed)
     ];
   });
-  masterRows.push(['TOTALS','','-',String(totSess),fmtDur(totSecs),String(totLt3),String(totGt3),String(totTrack),String(totChip),String(totBer),String(totQty)]);
+  masterRows.push(['TOTALS','','-',String(totSess),fmtDur(totSecs),String(totLt3),String(totGt3),String(totTrack),String(totChip),String(totBer),String(totQty),String(totModTested),String(totModPassed)]);
 
   doc.autoTable({
     startY:y,
-    head:[['Technician','Role','Jobs','Sessions','Total Time','<3 Px','>3 Px','Track','Chip','BER','Modules']],
+    head:[['Technician','Role','Jobs','Sessions','Total Time','<3 Px','>3 Px','Track','Chip','BER','Modules','Mod Tested','Mod Passed']],
     body:masterRows,
     theme:'grid',
     headStyles:{fillColor:BG_BAND,textColor:CYAN,fontSize:7,fontStyle:'bold',lineColor:BORDER,lineWidth:0.3},
@@ -747,7 +753,9 @@ function downloadPDF(){
       7:{textColor:ORANGE,halign:'center'},
       8:{textColor:PURPLE,halign:'center'},
       9:{textColor:RED,halign:'center'},
-      10:{textColor:GREEN,fontStyle:'bold',halign:'center',fontSize:9}
+      10:{textColor:GREEN,fontStyle:'bold',halign:'center',fontSize:9},
+      11:{textColor:CYAN,halign:'center'},
+      12:{textColor:GREEN,halign:'center'}
     },
     didParseCell:function(data){
       if(data.row.index===masterRows.length-1){
@@ -766,10 +774,10 @@ function downloadPDF(){
     var uJobs=byUser[uid];
 
     // Compute tech totals
-    var uSecs=0,uLt3=0,uGt3=0,uTrack=0,uChip=0,uBer=0,uQty=0,uSess=0;
+    var uSecs=0,uLt3=0,uGt3=0,uTrack=0,uChip=0,uBer=0,uQty=0,uSess=0,uModTested=0,uModPassed=0;
     Object.keys(uJobs).forEach(function(jid){
       uJobs[jid].forEach(function(wl){
-        uLt3+=wl.lt3;uGt3+=wl.gt3;uTrack+=wl.track;uChip+=wl.chip;uBer+=wl.ber;uQty+=wl.qty;uSess++;
+        uLt3+=wl.lt3;uGt3+=wl.gt3;uTrack+=wl.track;uChip+=wl.chip;uBer+=wl.ber;uQty+=wl.qty;uModTested+=(wl.mod_tested||0);uModPassed+=(wl.mod_passed||0);uSess++;
         if(wl.start_time&&wl.end_time)uSecs+=Math.floor((new Date(wl.end_time)-new Date(wl.start_time))/1000);
       });
     });
@@ -801,7 +809,8 @@ function downloadPDF(){
     var pills=[
       {l:'<3 Pixels',v:uLt3,c:AMBER},{l:'>3 Pixels',v:uGt3,c:RED},
       {l:'Track',v:uTrack,c:ORANGE},{l:'Chip',v:uChip,c:PURPLE},
-      {l:'BER',v:uBer,c:RED},{l:'Total Time',v:fmtDur(uSecs),c:CYAN,small:true},{l:'Modules',v:uQty,c:GREEN}
+      {l:'BER',v:uBer,c:RED},{l:'Total Time',v:fmtDur(uSecs),c:CYAN,small:true},{l:'Modules',v:uQty,c:GREEN},
+      {l:'Mod Tested',v:uModTested,c:CYAN},{l:'Mod Passed',v:uModPassed,c:GREEN}
     ];
     var pw=(W-M*2-6)/pills.length,ph=13;
     pills.forEach(function(s,i){
@@ -828,9 +837,9 @@ function downloadPDF(){
     var jobRows=Object.keys(uJobs).map(function(jid){
       var jlogs=uJobs[jid];
       var job=allJobs.find(function(x){return x.id===jid;});
-      var jSecs=0,jLt3=0,jGt3=0,jTrack=0,jChip=0,jBer=0,jQty=0;
+      var jSecs=0,jLt3=0,jGt3=0,jTrack=0,jChip=0,jBer=0,jQty=0,jModTested=0,jModPassed=0;
       jlogs.forEach(function(wl){
-        jLt3+=wl.lt3;jGt3+=wl.gt3;jTrack+=wl.track;jChip+=wl.chip;jBer+=wl.ber;jQty+=wl.qty;
+        jLt3+=wl.lt3;jGt3+=wl.gt3;jTrack+=wl.track;jChip+=wl.chip;jBer+=wl.ber;jQty+=wl.qty;jModTested+=(wl.mod_tested||0);jModPassed+=(wl.mod_passed||0);
         if(wl.start_time&&wl.end_time)jSecs+=Math.floor((new Date(wl.end_time)-new Date(wl.start_time))/1000);
       });
       return [
@@ -840,7 +849,7 @@ function downloadPDF(){
         job&&job.pitch?job.pitch:'-',
         String(jlogs.length),
         fmtDur(jSecs),
-        String(jLt3),String(jGt3),String(jTrack),String(jChip),String(jBer),String(jQty)
+        String(jLt3),String(jGt3),String(jTrack),String(jChip),String(jBer),String(jQty),String(jModTested),String(jModPassed)
       ];
     });
     // Sort by time spent desc
@@ -849,11 +858,11 @@ function downloadPDF(){
       return sb.localeCompare(sa);
     });
     // Totals row
-    jobRows.push(['TOTAL','','','',String(uSess),fmtDur(uSecs),String(uLt3),String(uGt3),String(uTrack),String(uChip),String(uBer),String(uQty)]);
+    jobRows.push(['TOTAL','','','',String(uSess),fmtDur(uSecs),String(uLt3),String(uGt3),String(uTrack),String(uChip),String(uBer),String(uQty),String(uModTested),String(uModPassed)]);
 
     doc.autoTable({
       startY:py,
-      head:[['Job #','Job Name','Client','Pitch','Sessions','Time Spent','<3 Px','>3 Px','Track','Chip','BER','Modules']],
+      head:[['Job #','Job Name','Client','Pitch','Sessions','Time Spent','<3 Px','>3 Px','Track','Chip','BER','Modules','Mod Tested','Mod Passed']],
       body:jobRows,
       theme:'grid',
       headStyles:{fillColor:BG_BAND,textColor:CYAN,fontSize:6.5,fontStyle:'bold',lineColor:BORDER,lineWidth:0.3,halign:'center'},
@@ -867,7 +876,9 @@ function downloadPDF(){
         8:{textColor:ORANGE,halign:'center'},
         9:{textColor:PURPLE,halign:'center'},
         10:{textColor:RED,halign:'center'},
-        11:{textColor:GREEN,fontStyle:'bold',halign:'center',fontSize:9}
+        11:{textColor:GREEN,fontStyle:'bold',halign:'center',fontSize:9},
+        12:{textColor:CYAN,halign:'center'},
+        13:{textColor:GREEN,halign:'center'}
       },
       didParseCell:function(data){
         if(data.row.index===jobRows.length-1){
