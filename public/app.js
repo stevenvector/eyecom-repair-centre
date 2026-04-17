@@ -5,7 +5,7 @@
 var SUPA_URL='https://educbtcexgflpaxvjhwa.supabase.co';
 var SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVkdWNidGNleGdmbHBheHZqaHdhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAwNjg2ODcsImV4cCI6MjA4NTY0NDY4N30._Kci3pHCk9uzI2YA6fLbCcAfb9srY4yESIF93b2DnXM';
 var sb=supabase.createClient(SUPA_URL,SUPA_KEY);
-var CU=null,editJid=null,stJid=null,sessJid=null,sessStart=null,sessInterval=null,syncDebounce=null,tzInterval=null;
+var CU=null,editJid=null,editLogId=null,stJid=null,sessJid=null,sessStart=null,sessInterval=null,syncDebounce=null,tzInterval=null;
 var allUsers=[],allJobs=[],allLogs=[],allReqs=[],rtChannels=[];
 var fpEmail=''; // stores email during reset flow
 
@@ -466,7 +466,64 @@ async function refreshActivePage(){if(!document.getElementById('page-active').cl
 // ==============================================
 //  WORK LOG PAGE
 // ==============================================
-function renderWLPage(){if(!allLogs.length){document.getElementById('wlcont').innerHTML='<div class="empty"><div class="eico"> </div><p class="etxt">No work logs yet</p></div>';return;}document.getElementById('wlcont').innerHTML='<div class="tc"><div class="twrap"><table class="dt"><thead><tr><th>Technician</th><th>Job</th><th>Start</th><th>End</th><th>Duration</th><th>&lt;3 Px</th><th>&gt;3 Px</th><th>Track</th><th>Chip</th><th>BER</th><th>Qty Total</th><th>Mod Tested</th><th>Mod Passed</th><th>Notes</th></tr></thead><tbody>'+allLogs.map(function(wl){var dur='-';if(wl.start_time&&wl.end_time)dur=fmtDur(Math.floor((new Date(wl.end_time)-new Date(wl.start_time))/1000));var j=allJobs.find(function(x){return x.id===wl.job_id;});return'<tr><td><div class="chip">'+userName(wl.user_id)+'</div></td><td><span style="color:var(--c1);font-weight:600">'+(j?j.job_number:wl.job_id.slice(0,8))+'</span><br><span style="font-size:11px;color:var(--tm)">'+(j?j.job_name:'')+'</span></td><td style="font-size:12px;color:var(--tm)">'+(wl.start_time?wl.start_time.slice(0,16).replace('T',' '):'-')+'</td><td style="font-size:12px;color:var(--tm)">'+(wl.end_time?wl.end_time.slice(0,16).replace('T',' '):'-')+'</td><td style="font-family:Rajdhani,sans-serif;color:var(--c1)">'+dur+'</td><td style="color:var(--cy);font-weight:600">'+wl.lt3+'</td><td style="color:var(--cr);font-weight:600">'+wl.gt3+'</td><td style="color:var(--c2)">'+wl.track+'</td><td style="color:var(--cp)">'+wl.chip+'</td><td style="color:var(--cr)">'+wl.ber+'</td><td style="color:var(--cg);font-family:Rajdhani,sans-serif;font-size:16px;font-weight:700">'+wl.qty+'</td><td style="color:var(--c1);font-weight:600">'+(wl.mod_tested||0)+'</td><td style="color:var(--cg);font-weight:600">'+(wl.mod_passed||0)+'</td><td style="font-size:12px;color:var(--tm);max-width:160px">'+(wl.notes||'-')+'</td></tr>';}).join('')+'</tbody></table></div></div>';}
+function renderWLPage(){if(!allLogs.length){document.getElementById('wlcont').innerHTML='<div class="empty"><div class="eico"> </div><p class="etxt">No work logs yet</p></div>';return;}var ca=CU&&(CU.is_admin||CU.is_senior);document.getElementById('wlcont').innerHTML='<div class="tc"><div class="twrap"><table class="dt"><thead><tr><th>Technician</th><th>Job</th><th>Start</th><th>End</th><th>Duration</th><th>&lt;3 Px</th><th>&gt;3 Px</th><th>Track</th><th>Chip</th><th>BER</th><th>Qty Total</th><th>Mod Tested</th><th>Mod Passed</th><th>Notes</th>'+(ca?'<th></th>':'')+'</tr></thead><tbody>'+allLogs.map(function(wl){var dur='-';if(wl.start_time&&wl.end_time)dur=fmtDur(Math.floor((new Date(wl.end_time)-new Date(wl.start_time))/1000));var j=allJobs.find(function(x){return x.id===wl.job_id;});return'<tr><td><div class="chip">'+userName(wl.user_id)+'</div></td><td><span style="color:var(--c1);font-weight:600">'+(j?j.job_number:wl.job_id.slice(0,8))+'</span><br><span style="font-size:11px;color:var(--tm)">'+(j?j.job_name:'')+'</span></td><td style="font-size:12px;color:var(--tm)">'+(wl.start_time?wl.start_time.slice(0,16).replace('T',' '):'-')+'</td><td style="font-size:12px;color:var(--tm)">'+(wl.end_time?wl.end_time.slice(0,16).replace('T',' '):'-')+'</td><td style="font-family:Rajdhani,sans-serif;color:var(--c1)">'+dur+'</td><td style="color:var(--cy);font-weight:600">'+wl.lt3+'</td><td style="color:var(--cr);font-weight:600">'+wl.gt3+'</td><td style="color:var(--c2)">'+wl.track+'</td><td style="color:var(--cp)">'+wl.chip+'</td><td style="color:var(--cr)">'+wl.ber+'</td><td style="color:var(--cg);font-family:Rajdhani,sans-serif;font-size:16px;font-weight:700">'+wl.qty+'</td><td style="color:var(--c1);font-weight:600">'+(wl.mod_tested||0)+'</td><td style="color:var(--cg);font-weight:600">'+(wl.mod_passed||0)+'</td><td style="font-size:12px;color:var(--tm);max-width:160px">'+(wl.notes||'-')+'</td>'+(ca?'<td><button class="btn bcyan bsm" onclick="openEditLog(\''+wl.id+'\')">&#9998; Edit</button></td>':'')+'</tr>';}).join('')+'</tbody></table></div></div>';}
+
+// ==============================================
+//  EDIT WORK LOG (seniors / admins)
+// ==============================================
+function openEditLog(id){
+  if(!CU||(CU.is_admin===false&&CU.is_senior===false)){toast('Not authorised','error');return;}
+  var wl=allLogs.find(function(x){return x.id===id;});
+  if(!wl){toast('Log not found','error');return;}
+  editLogId=id;
+  var j=allJobs.find(function(x){return x.id===wl.job_id;});
+  document.getElementById('el-sub').textContent=userName(wl.user_id)+' — '+(j?j.job_number+' '+j.job_name:'Unknown Job');
+  document.getElementById('el-start').value=wl.start_time?wl.start_time.slice(0,16):'';
+  document.getElementById('el-end').value=wl.end_time?wl.end_time.slice(0,16):'';
+  document.getElementById('el-lt3').value=wl.lt3||0;
+  document.getElementById('el-gt3').value=wl.gt3||0;
+  document.getElementById('el-track').value=wl.track||0;
+  document.getElementById('el-chip').value=wl.chip||0;
+  document.getElementById('el-ber').value=wl.ber||0;
+  document.getElementById('el-qty').value=wl.qty||0;
+  document.getElementById('el-mod-tested').value=wl.mod_tested||0;
+  document.getElementById('el-mod-passed').value=wl.mod_passed||0;
+  document.getElementById('el-notes').value=wl.notes||'';
+  om('m-edit-log');
+}
+function calcEditLogQty(){
+  var lt=parseInt(document.getElementById('el-lt3').value)||0;
+  var gt=parseInt(document.getElementById('el-gt3').value)||0;
+  var tr=parseInt(document.getElementById('el-track').value)||0;
+  var ch=parseInt(document.getElementById('el-chip').value)||0;
+  document.getElementById('el-qty').value=lt+gt+tr+ch;
+}
+async function saveEditLog(){
+  if(!editLogId)return;
+  var btn=document.getElementById('save-log-btn');
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span>Saving...';
+  var lt=parseInt(document.getElementById('el-lt3').value)||0;
+  var gt=parseInt(document.getElementById('el-gt3').value)||0;
+  var tr=parseInt(document.getElementById('el-track').value)||0;
+  var ch=parseInt(document.getElementById('el-chip').value)||0;
+  var{error}=await sb.from('rc_work_logs').update({
+    start_time:document.getElementById('el-start').value||null,
+    end_time:document.getElementById('el-end').value||null,
+    lt3:lt,gt3:gt,track:tr,chip:ch,
+    ber:parseInt(document.getElementById('el-ber').value)||0,
+    qty:lt+gt+tr+ch,
+    mod_tested:parseInt(document.getElementById('el-mod-tested').value)||0,
+    mod_passed:parseInt(document.getElementById('el-mod-passed').value)||0,
+    notes:document.getElementById('el-notes').value
+  }).eq('id',editLogId);
+  btn.disabled=false;btn.textContent='✓ Save Changes';
+  if(error){toast('Error saving: '+error.message,'error');return;}
+  await loadLogs();
+  cm('m-edit-log');
+  editLogId=null;
+  renderWLPage();
+  toast('Work log updated','success');
+}
 
 // ==============================================
 //  JOB CRUD

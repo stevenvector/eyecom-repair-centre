@@ -810,6 +810,40 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
   </div>
 </div>
 
+<div class="mover" id="m-edit-log">
+  <div class="modal xl">
+    <div class="mhd">
+      <div><div class="mttl">Edit Work Log</div><div style="font-size:12px;color:var(--tm);margin-top:3px" id="el-sub"></div></div>
+      <button class="mcls" onclick="cm('m-edit-log')">×</button>
+    </div>
+    <div style="background:var(--bg);border-radius:10px;padding:16px;margin-bottom:14px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+        <div class="fg2"><label>Start Time</label><input type="datetime-local" id="el-start"></div>
+        <div class="fg2"><label>End Time</label><input type="datetime-local" id="el-end"></div>
+      </div>
+      <div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--tm);margin-bottom:8px">Defect Counts</div>
+      <div class="wlf-grid" style="margin-bottom:14px">
+        <div class="fg2"><label>&lt;3 Pixels</label><input type="number" id="el-lt3" placeholder="0" min="0" oninput="calcEditLogQty()"></div>
+        <div class="fg2"><label>&gt;3 Pixels</label><input type="number" id="el-gt3" placeholder="0" min="0" oninput="calcEditLogQty()"></div>
+        <div class="fg2"><label>Track Damage</label><input type="number" id="el-track" placeholder="0" min="0" oninput="calcEditLogQty()"></div>
+        <div class="fg2"><label>Chip Faults</label><input type="number" id="el-chip" placeholder="0" min="0" oninput="calcEditLogQty()"></div>
+        <div class="fg2"><label>B.E.R</label><input type="number" id="el-ber" placeholder="0" min="0"></div>
+        <div class="fg2"><label>Qty Total</label><input type="number" id="el-qty" readonly style="opacity:.7;background:rgba(0,212,255,.05);border-color:rgba(0,212,255,.2)"></div>
+      </div>
+      <div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--tm);margin-bottom:8px">Module Testing</div>
+      <div class="wlf-grid" style="margin-bottom:14px">
+        <div class="fg2"><label>Modules Tested</label><input type="number" id="el-mod-tested" placeholder="0" min="0"></div>
+        <div class="fg2"><label>Modules Passed</label><input type="number" id="el-mod-passed" placeholder="0" min="0"></div>
+      </div>
+      <div class="fg2"><label>Notes</label><textarea id="el-notes" placeholder="Notes..."></textarea></div>
+    </div>
+    <div class="mft">
+      <button class="btn bout" onclick="cm('m-edit-log')">Cancel</button>
+      <button class="btn bcyan" id="save-log-btn" onclick="saveEditLog()">&#10003; Save Changes</button>
+    </div>
+  </div>
+</div>
+
 <div class="mover" id="m-user">
   <div class="modal sm">
     <div class="mhd"><div class="mttl">Add New User</div><button class="mcls" onclick="cm('m-user')">×</button></div>
