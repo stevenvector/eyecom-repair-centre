@@ -57,8 +57,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
 
 /* ── APP ── */
 #app{display:none;min-height:100vh}
-.sb{position:fixed;left:0;top:0;bottom:0;width:220px;background:var(--bgc);border-right:1px solid var(--bdr);display:flex;flex-direction:column;z-index:200;transition:transform .25s;padding-top:var(--safe-top)}
-.sb.open{transform:translateX(0)!important}
+.sb{position:fixed;left:0;top:0;bottom:0;width:220px;background:var(--bgc);border-right:1px solid var(--bdr);display:flex;flex-direction:column;z-index:200;transition:transform .25s;padding-top:var(--safe-top);transform:translateX(-100%)}
+.sb.open{transform:translateX(0)}
 .sblogo{padding:18px 16px 14px;border-bottom:1px solid var(--bdr)}
 .sblogo .br{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:var(--c1);letter-spacing:1px}
 .sblogo .sr{font-size:10px;color:var(--tm);letter-spacing:2px;text-transform:uppercase}
@@ -75,9 +75,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
 .uinfo .un{font-size:13px;font-weight:500}.uinfo .ur{font-size:11px;color:var(--tm)}
 .blog{background:none;border:none;color:var(--tm);cursor:pointer;font-size:15px;margin-left:auto;padding:4px 6px;border-radius:4px}.blog:hover{color:var(--cr)}
 .nb{background:var(--cr);color:#fff;border-radius:50%;width:15px;height:15px;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;margin-left:auto}
-.ham{display:none;position:fixed;top:12px;left:12px;z-index:300;background:var(--bgc);border:1px solid var(--bdr);border-radius:8px;padding:8px 10px;cursor:pointer;color:var(--tp);font-size:18px;line-height:1}
+.ham{display:flex;align-items:center;justify-content:center;position:fixed;top:12px;left:12px;z-index:300;background:var(--bgc);border:1px solid var(--bdr);border-radius:8px;padding:8px 10px;cursor:pointer;color:var(--tp);font-size:18px;line-height:1}
 .sov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:150}
-.mc{margin-left:220px;padding:20px;min-height:100vh;padding-bottom:calc(20px + var(--safe-bottom))}
+.mc{margin-left:0;padding:calc(58px + var(--safe-top)) 20px calc(20px + var(--safe-bottom));min-height:100vh;transition:margin-left .25s ease}
+#app.sb-open .mc{margin-left:220px}
+@media(min-width:769px){#app.sb-open .mc{padding-top:20px}}
 .page{display:none}.page.active{display:block}
 .ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px}
 .pt{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;letter-spacing:1px}
@@ -220,7 +222,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
 .token-input{font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;letter-spacing:6px;text-align:center}
 
 @media(max-width:900px){.settings-layout{grid-template-columns:1fr}.settings-nav{position:static;display:flex;flex-wrap:wrap}}
-@media(max-width:768px){.sb{transform:translateX(-100%);width:240px}.ham{display:flex;align-items:center;justify-content:center}.sov.open{display:block}.mc{margin-left:0;padding:calc(60px + var(--safe-top)) 12px calc(20px + var(--safe-bottom))}.fgrid{grid-template-columns:1fr}.fgrid .full{grid-column:1}.wlf-grid{grid-template-columns:1fr 1fr}.drow{grid-template-columns:1fr 1fr}}
+@media(max-width:768px){.sb{width:240px}.sov.open{display:block}.mc{padding:calc(58px + var(--safe-top)) 12px calc(20px + var(--safe-bottom))}#app.sb-open .mc{margin-left:0}.fgrid{grid-template-columns:1fr}.fgrid .full{grid-column:1}.wlf-grid{grid-template-columns:1fr 1fr}.drow{grid-template-columns:1fr 1fr}}
 @media(max-width:480px){.sg{grid-template-columns:1fr 1fr}.drow{grid-template-columns:1fr}.abtns{flex-direction:column}.abtns .btn{width:100%;justify-content:center}.ph{flex-direction:column;align-items:flex-start}.mft{flex-direction:column}.mft .btn{width:100%;justify-content:center}.wlf-grid{grid-template-columns:1fr}.input-with-btn{flex-direction:column}.input-with-btn .btn{width:100%;justify-content:center}}
 
 /* ── STOCK SYSTEM ── */

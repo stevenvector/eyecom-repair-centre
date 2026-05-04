@@ -134,7 +134,7 @@ async function setupUI(){
   document.querySelectorAll('.ao').forEach(function(el){el.style.display=ca?'':'none';});
   document.querySelectorAll('.ao-assign').forEach(function(el){el.style.display=ca?'':'none';});
   await Promise.all([loadUsers(),loadJobs(),loadLogs(),loadReqs()]);
-  setupRealtime();renderDash();prepReports();
+  setupRealtime();renderDash();prepReports();initSidebarState();
 }
 async function loadUsers(){var{data}=await sb.from('rc_users').select('*').order('name');allUsers=data||[];var ru=document.getElementById('rep-user');if(ru){ru.innerHTML='<option value="">All Technicians</option>'+allUsers.filter(function(u){return!u.is_admin;}).map(function(u){return'<option value="'+u.id+'">'+u.name+'</option>';}).join('');}}
 async function loadJobs(){var{data}=await sb.from('rc_jobs').select('*').order('created_at',{ascending:false});allJobs=data||[];}
@@ -373,8 +373,9 @@ async function saveRegion(){
 // ==============================================
 //  NAVIGATION
 // ==============================================
-function toggleSB(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('sov').classList.toggle('open');}
-function closeSB(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sov').classList.remove('open');}
+function toggleSB(){var sb=document.getElementById('sidebar'),app=document.getElementById('app'),sov=document.getElementById('sov');sb.classList.toggle('open');app.classList.toggle('sb-open');if(window.innerWidth<=768){sov.classList.toggle('open');}else{sov.classList.remove('open');}}
+function closeSB(){document.getElementById('sidebar').classList.remove('open');document.getElementById('app').classList.remove('sb-open');document.getElementById('sov').classList.remove('open');}
+function initSidebarState(){if(window.innerWidth>768){document.getElementById('sidebar').classList.add('open');document.getElementById('app').classList.add('sb-open');}else{closeSB();}}
 function showPage(n){
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
   document.querySelectorAll('.ni').forEach(function(ni){ni.classList.remove('active');});
@@ -2395,7 +2396,7 @@ function generateDamagePDF(items, fromDate, toDate) {
       d.severity,
       loggedBy ? loggedBy.name : '?',
       new Date(d.logged_at).toLocaleDateString(),
-      (d.damage_notes||'-').slice(0,50)
+      d.damage_notes || '-'
     ].filter(function(v){ return v !== null; });
   });
 
@@ -2403,6 +2404,7 @@ function generateDamagePDF(items, fromDate, toDate) {
   if (!isSingleJob) heads.push('Job');
   heads = heads.concat(['Damage Types','Severity','Logged By','Date','Notes']);
 
+  var notesCol = isSingleJob ? 6 : 7;
   var colStyles = {
     0:{fontStyle:'bold',textColor:CYAN},
     3:{fontSize:5.5},
@@ -2410,6 +2412,7 @@ function generateDamagePDF(items, fromDate, toDate) {
   };
   var sevCol = isSingleJob ? 3 : 4;
   colStyles[sevCol] = {halign:'center'};
+  colStyles[notesCol] = {overflow:'linebreak', cellWidth:45, fontSize:6};
 
   doc.autoTable({
     startY: y,
@@ -2417,7 +2420,7 @@ function generateDamagePDF(items, fromDate, toDate) {
     body: tableRows,
     theme: 'grid',
     headStyles: {fillColor:BG_BAND,textColor:RED,fontSize:6.5,fontStyle:'bold',lineColor:BORDER,lineWidth:0.3},
-    bodyStyles: {fillColor:BG_PAGE,textColor:TXT_PRI,fontSize:6.5,lineColor:BORDER,lineWidth:0.2},
+    bodyStyles: {fillColor:BG_PAGE,textColor:TXT_PRI,fontSize:6.5,lineColor:BORDER,lineWidth:0.2,overflow:'linebreak'},
     alternateRowStyles: {fillColor:BG_BAND},
     columnStyles: colStyles,
     didParseCell: function(data) {
