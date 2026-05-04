@@ -795,6 +795,7 @@ function downloadPDF(){
   });
   masterRows.push(['TOTALS','','-',String(totSess),fmtDur(totSecs),String(totLt3),String(totGt3),String(totTrack),String(totChip),String(totBer),String(totQty),String(totModTested),String(totModPassed)]);
 
+  var _wlSumPage=doc.internal.getNumberOfPages();
   doc.autoTable({
     startY:y,
     head:[['Technician','Role','Jobs','Sessions','Total Time','<3 Px','>3 Px','Track','Chip','BER','Modules','Mod Tested','Mod Passed']],
@@ -815,6 +816,7 @@ function downloadPDF(){
       11:{textColor:CYAN,halign:'center'},
       12:{textColor:GREEN,halign:'center'}
     },
+    willDrawPage:function(data){if(doc.internal.getNumberOfPages()>_wlSumPage){doc.setFillColor.apply(doc,BG_PAGE);doc.rect(0,0,W,H,'F');}},
     didParseCell:function(data){
       if(data.row.index===masterRows.length-1){
         data.cell.styles.fillColor=BG_HDR;
@@ -918,6 +920,7 @@ function downloadPDF(){
     // Totals row
     jobRows.push(['TOTAL','','','',String(uSess),fmtDur(uSecs),String(uLt3),String(uGt3),String(uTrack),String(uChip),String(uBer),String(uQty),String(uModTested),String(uModPassed)]);
 
+    var _wlTechPage=doc.internal.getNumberOfPages();
     doc.autoTable({
       startY:py,
       head:[['Job #','Job Name','Client','Pitch','Sessions','Time Spent','<3 Px','>3 Px','Track','Chip','BER','Modules','Mod Tested','Mod Passed']],
@@ -938,6 +941,7 @@ function downloadPDF(){
         12:{textColor:CYAN,halign:'center'},
         13:{textColor:GREEN,halign:'center'}
       },
+      willDrawPage:function(data){if(doc.internal.getNumberOfPages()>_wlTechPage){doc.setFillColor.apply(doc,BG_PAGE);doc.rect(0,0,W,H,'F');}},
       didParseCell:function(data){
         if(data.row.index===jobRows.length-1){
           data.cell.styles.fillColor=BG_HDR;
@@ -2114,10 +2118,11 @@ function openDamageReport() {
 }
 
 function downloadDamagePDF() {
-  var from = document.getElementById('dmg-rep-from').value;
-  var to   = document.getElementById('dmg-rep-to').value;
-  var jobF = document.getElementById('dmg-rep-job').value;
-  var sevF = document.getElementById('dmg-rep-sev').value;
+  var from    = document.getElementById('dmg-rep-from').value;
+  var to      = document.getElementById('dmg-rep-to').value;
+  var jobF    = document.getElementById('dmg-rep-job').value;
+  var sevF    = document.getElementById('dmg-rep-sev').value;
+  var summary = (document.getElementById('dmg-rep-summary').value || '').trim();
   var items = allDamageLogs;
   if (from) items = items.filter(function(d){ return d.logged_at >= from; });
   if (to)   items = items.filter(function(d){ return d.logged_at <= to + 'T23:59:59'; });
@@ -2125,16 +2130,16 @@ function downloadDamagePDF() {
   if (sevF) items = items.filter(function(d){ return d.severity === sevF; });
   if (!items.length) { toast('No entries for selected filters', 'error'); return; }
   cm('m-damage-report');
-  generateDamagePDF(items, from || 'All', to || 'All');
+  generateDamagePDF(items, from || 'All', to || 'All', summary);
 }
 
 function downloadSingleDamagePDF(id) {
   var d = allDamageLogs.find(function(x){ return x.id === id; });
   if (!d) return;
-  generateDamagePDF([d], d.logged_at.slice(0,10), d.logged_at.slice(0,10));
+  generateDamagePDF([d], d.logged_at.slice(0,10), d.logged_at.slice(0,10), '');
 }
 
-function generateDamagePDF(items, fromDate, toDate) {
+function generateDamagePDF(items, fromDate, toDate, summary) {
   if (typeof window.jspdf === 'undefined') { toast('PDF library loading, try again', 'info'); return; }
 
   // -- Determine if this is a single-job report ---------------------------
@@ -2324,6 +2329,7 @@ function generateDamagePDF(items, fromDate, toDate) {
           String(s.qty_dispatched||0), s.status||'-'];
       });
 
+      var _stockPage=doc.internal.getNumberOfPages();
       doc.autoTable({
         startY: y,
         head: [['Batch','Pitch','Received','In Stock','Dispatched','Status']],
@@ -2338,6 +2344,7 @@ function generateDamagePDF(items, fromDate, toDate) {
           4:{halign:'center',textColor:AMBER},
           5:{halign:'center'}
         },
+        willDrawPage: function(data){if(doc.internal.getNumberOfPages()>_stockPage){doc.setFillColor.apply(doc,BG_PAGE);doc.rect(0,0,W,H,'F');}},
         margin: {left:M, right:M},
         tableLineColor: BORDER, tableLineWidth: 0.3
       });
@@ -2414,6 +2421,7 @@ function generateDamagePDF(items, fromDate, toDate) {
   colStyles[sevCol] = {halign:'center'};
   colStyles[notesCol] = {overflow:'linebreak', cellWidth:45, fontSize:6};
 
+  var _dmgPage=doc.internal.getNumberOfPages();
   doc.autoTable({
     startY: y,
     head: [heads],
@@ -2423,6 +2431,7 @@ function generateDamagePDF(items, fromDate, toDate) {
     bodyStyles: {fillColor:BG_PAGE,textColor:TXT_PRI,fontSize:6.5,lineColor:BORDER,lineWidth:0.2,overflow:'linebreak'},
     alternateRowStyles: {fillColor:BG_BAND},
     columnStyles: colStyles,
+    willDrawPage: function(data){if(doc.internal.getNumberOfPages()>_dmgPage){doc.setFillColor.apply(doc,BG_PAGE);doc.rect(0,0,W,H,'F');}},
     didParseCell: function(data) {
       if (data.section === 'body' && data.column.index === sevCol) {
         var sev = data.cell.raw;
@@ -2435,6 +2444,55 @@ function generateDamagePDF(items, fromDate, toDate) {
     margin: {left:M, right:M},
     tableLineColor: BORDER, tableLineWidth: 0.3
   });
+
+  // -- OPTIONAL REPORT SUMMARY ---------------------------------------------
+  if (summary && summary.trim()) {
+    var sumText = summary.trim();
+    var sumMaxW = W - M*2 - 8;
+    var lineH   = 4.5; // mm per line at fontSize 8
+
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(8);
+    var sumLines  = doc.splitTextToSize(sumText, sumMaxW);
+    var textBgH   = sumLines.length * lineH + 8;
+    var blockH    = 10 + textBgH; // section header (10) + text block
+    var safeBottom = H - 12;      // leave room for the 8mm footer band
+
+    // Go to last page and check remaining space
+    var lastPage = doc.getNumberOfPages();
+    doc.setPage(lastPage);
+    var sumY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 8 : H / 2;
+
+    if (sumY + blockH > safeBottom) {
+      doc.addPage();
+      doc.setFillColor.apply(doc, BG_PAGE);
+      doc.rect(0, 0, W, H, 'F');
+      sumY = 16;
+    }
+
+    // Section header band
+    doc.setFillColor.apply(doc, BG_BAND);
+    doc.rect(M, sumY, W-M*2, 8, 'F');
+    doc.setFillColor.apply(doc, AMBER);
+    doc.rect(M, sumY, 2.5, 8, 'F');
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor.apply(doc, TXT_PRI);
+    doc.text('REPORT SUMMARY', M+6, sumY+5.3);
+    sumY += 10;
+
+    // Text background with left accent
+    doc.setFillColor.apply(doc, BG_BAND);
+    doc.rect(M, sumY, W-M*2, textBgH, 'F');
+    doc.setFillColor.apply(doc, AMBER);
+    doc.rect(M, sumY, 1.5, textBgH, 'F');
+
+    // Summary text
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(8);
+    doc.setTextColor.apply(doc, TXT_PRI);
+    doc.text(sumLines, M+6, sumY+5, {lineHeightFactor: lineH / (8 * 0.3528)});
+  }
 
   // -- FOOTER ON EVERY PAGE ------------------------------------------------
   var pageCount = doc.getNumberOfPages();

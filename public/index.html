@@ -1093,6 +1093,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tp);min-hei
           <option>Low</option><option>Medium</option><option>High</option><option>Write-off</option>
         </select>
       </div>
+      <div style="height:1px;background:var(--bdr);margin:2px 0"></div>
+      <div class="fg2">
+        <label>Report Summary <span style="font-size:10px;color:var(--tm);font-weight:400;text-transform:none;letter-spacing:0">(optional — appended to the end of the PDF)</span></label>
+        <textarea id="dmg-rep-summary" placeholder="Enter any additional notes, conclusions or sign-off comments to include at the bottom of the report..." style="min-height:90px;resize:vertical"></textarea>
+      </div>
     </div>
     <div class="mft">
       <button class="btn bout" onclick="cm('m-damage-report')">Cancel</button>
